@@ -39,7 +39,7 @@ export default function UploadPage() {
     reader.onload = (e) => {
       const wb = XLSX.read(e.target?.result, { type: "binary" });
       const sheet = wb.Sheets[wb.SheetNames[0]];
-      const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
       if (rows.length > 0) setColumns(Object.keys(rows[0]));
     };
     reader.readAsBinaryString(f);
@@ -65,6 +65,8 @@ export default function UploadPage() {
     setDrag(false);
     const f = e.dataTransfer.files[0];
     if (f) handleFile(f);
+  // handleFile is defined inline and stable — no re-creation needed
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function upload() {

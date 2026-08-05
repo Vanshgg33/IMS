@@ -1,5 +1,10 @@
 import mongoose from "mongoose";
 
+const SuggestionSchema = new mongoose.Schema(
+  { variantId: String, nameCanonical: String, score: Number },
+  { _id: false }
+);
+
 const RowSchema = new mongoose.Schema(
   {
     rowIndex:       Number,
@@ -8,6 +13,7 @@ const RowSchema = new mongoose.Schema(
     status:         { type: String, enum: ["matched", "unmatched", "skipped"], default: "unmatched" },
     matchedVariant: { type: mongoose.Schema.Types.ObjectId, ref: "Variant" },
     matchType:      { type: String, enum: ["exact", "alias", "manual", "fuzzy"] },
+    suggestions:    [SuggestionSchema],
   },
   { _id: false }
 );

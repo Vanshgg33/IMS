@@ -3,8 +3,18 @@ import mongoose from "mongoose";
 const MONGODB_URI = process.env.MONGODB_URI!;
 if (!MONGODB_URI) throw new Error("MONGODB_URI not set");
 
-let cached = (global as any).__mongoose as { conn: typeof mongoose | null; promise: Promise<typeof mongoose> | null };
-if (!cached) cached = (global as any).__mongoose = { conn: null, promise: null };
+interface MongooseCache {
+  conn: typeof mongoose | null;
+  promise: Promise<typeof mongoose> | null;
+}
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __mongoose: MongooseCache | undefined;
+}
+
+const cached: MongooseCache = global.__mongoose ?? { conn: null, promise: null };
+global.__mongoose = cached;
 
 export async function connectDB() {
   if (cached.conn) return cached.conn;

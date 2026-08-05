@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import UploadBatch from "@/models/UploadBatch";

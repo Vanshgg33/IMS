@@ -34,8 +34,10 @@ export default function ProductsPage() {
 
   async function load() {
     const res = await fetch("/api/variants");
-    setVariants(await res.json());
+    const fresh: Variant[] = await res.json();
+    setVariants(fresh);
     setLoading(false);
+    return fresh;
   }
   useEffect(() => { load(); }, []);
 
@@ -69,13 +71,15 @@ export default function ProductsPage() {
 
   async function addAlias() {
     if (!newAlias.trim() || !aliasTarget) return;
-    await fetch(`/api/variants/${aliasTarget._id}/aliases`, {
+    const targetId = aliasTarget._id;
+    await fetch(`/api/variants/${targetId}/aliases`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ raw: newAlias.trim() }),
     });
     setNewAlias("");
-    load();
+    const fresh = await load();
+    setAliasTarget(fresh?.find((v) => v._id === targetId) ?? null);
   }
 
   async function removeAlias(variantId: string, key: string) {
@@ -84,7 +88,8 @@ export default function ProductsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key }),
     });
-    load();
+    const fresh = await load();
+    setAliasTarget(fresh?.find((v) => v._id === variantId) ?? null);
   }
 
   const filtered = variants.filter(
@@ -167,14 +172,14 @@ export default function ProductsPage() {
             {(["productName", "variantLabel", "unit"] as const).map((f) => (
               <div key={f}>
                 <Label className="capitalize text-xs mb-1">{f.replace(/([A-Z])/g, " $1")}</Label>
-                <Input value={(form as any)[f]} onChange={(e) => setForm({ ...form, [f]: e.target.value })} />
+                <Input value={form[f]} onChange={(e) => setForm({ ...form, [f]: e.target.value })} />
               </div>
             ))}
             <div className="grid grid-cols-2 gap-3">
               {(["stockQty", "reorderLevel"] as const).map((f) => (
                 <div key={f}>
                   <Label className="capitalize text-xs mb-1">{f.replace(/([A-Z])/g, " $1")}</Label>
-                  <Input type="number" value={(form as any)[f]}
+                  <Input type="number" value={form[f]}
                     onChange={(e) => setForm({ ...form, [f]: parseFloat(e.target.value) || 0 })} />
                 </div>
               ))}

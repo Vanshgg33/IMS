@@ -1,7 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -24,7 +23,7 @@ const REASON_COLORS: Record<string, string> = {
   adjustment: "bg-gray-100 text-gray-600",
 };
 
-export default function LedgerPage() {
+function LedgerTable() {
   const searchParams = useSearchParams();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,12 +42,11 @@ export default function LedgerPage() {
   );
 
   return (
-    <div>
+    <>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">Stock Ledger</h1>
         <Input placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} className="w-48" />
       </div>
-
       {loading ? (
         <p className="text-gray-400 text-sm">Loading…</p>
       ) : (
@@ -92,6 +90,14 @@ export default function LedgerPage() {
           </TableBody>
         </Table>
       )}
-    </div>
+    </>
+  );
+}
+
+export default function LedgerPage() {
+  return (
+    <Suspense fallback={<p className="text-gray-400 text-sm">Loading…</p>}>
+      <LedgerTable />
+    </Suspense>
   );
 }

@@ -2,8 +2,15 @@ import Variant from "@/models/Variant";
 import { normalizeName } from "@/lib/normalize";
 import stringSimilarity from "string-similarity";
 
+interface VariantDoc {
+  _id: unknown;
+  nameKey: string;
+  nameCanonical: string;
+  aliases?: { key: string }[];
+}
+
 export interface MatchIndex {
-  variants: any[];
+  variants: VariantDoc[];
   exact: Map<string, string>;
 }
 
@@ -33,7 +40,7 @@ export function matchName(rawName: string, index: MatchIndex) {
     .sort((a, b) => b.rating - a.rating)
     .slice(0, 3)
     .map((r) => {
-      const v = index.variants.find((vv) => vv.nameKey === r.target);
+      const v = index.variants.find((vv) => vv.nameKey === r.target)!;
       return { variantId: String(v._id), nameCanonical: v.nameCanonical, score: r.rating };
     });
 

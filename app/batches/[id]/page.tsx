@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,21 +42,20 @@ export default function BatchPreviewPage() {
   const [allVariants, setAllVariants] = useState<Variant[]>([]);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
-  const [pendingResolve, setPendingResolve] = useState<Record<number, string>>({});
 
-  async function load() {
+  const load = useCallback(async () => {
     const [batchRes, varRes] = await Promise.all([
       fetch(`/api/batches/${id}`),
       fetch("/api/variants"),
     ]);
-    const { batch, variantMap } = await batchRes.json();
-    setBatch(batch);
-    setVariantMap(variantMap);
+    const { batch: b, variantMap: vm } = await batchRes.json();
+    setBatch(b);
+    setVariantMap(vm);
     setAllVariants(await varRes.json());
     setLoading(false);
-  }
+  }, [id]);
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => { load(); }, [load]);
 
   async function resolveRow(rowIndex: number, variantId: string, saveAlias = true) {
     await fetch(`/api/batches/${id}/rows`, {
@@ -64,7 +63,6 @@ export default function BatchPreviewPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ rowIndex, variantId, saveAlias }),
     });
-    setPendingResolve((p) => ({ ...p, [rowIndex]: variantId }));
     load();
   }
 
