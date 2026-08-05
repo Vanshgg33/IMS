@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import ReportTemplate from "@/models/ReportTemplate";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   await connectDB();
   const templates = await ReportTemplate.find().lean();

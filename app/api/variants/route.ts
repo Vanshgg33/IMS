@@ -4,6 +4,8 @@ import Variant from "@/models/Variant";
 import StockLedger from "@/models/StockLedger";
 import { normalizeName } from "@/lib/normalize";
 
+export const dynamic = "force-dynamic";
+
 function makeSKU() {
   return "SKU-" + Date.now().toString(36).toUpperCase();
 }
