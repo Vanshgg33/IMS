@@ -27,18 +27,39 @@ const STATUS_COLORS: Record<string, string> = {
 export default function BatchesPage() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [reversingId, setReversingId] = useState<string | null>(null);
 
   async function load() {
-    const res = await fetch("/api/batches");
-    setBatches(await res.json());
-    setLoading(false);
+    setLoadError("");
+    try {
+      const res = await fetch("/api/batches");
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
+      setBatches(await res.json());
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to load batches");
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => { load(); }, []);
 
   async function reverse(id: string) {
     if (!confirm("Reverse this batch? Stock will be restored.")) return;
-    await fetch(`/api/batches/${id}/reverse`, { method: "POST" });
-    load();
+    setReversingId(id);
+    try {
+      const res = await fetch(`/api/batches/${id}/reverse`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Reverse failed");
+      } else {
+        load();
+      }
+    } catch {
+      alert("Network error — could not reverse batch");
+    } finally {
+      setReversingId(null);
+    }
   }
 
   return (
@@ -47,6 +68,13 @@ export default function BatchesPage() {
         <h1 className="text-xl font-bold">Batches</h1>
         <Link href="/upload"><Button size="sm">+ New Upload</Button></Link>
       </div>
+
+      {loadError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+          {loadError} —{" "}
+          <button className="underline" onClick={() => { setLoading(true); load(); }}>retry</button>
+        </div>
+      )}
 
       {loading ? (
         <p className="text-gray-400 text-sm">Loading…</p>
@@ -91,24 +119,32 @@ export default function BatchesPage() {
                   {new Date(b.createdAt).toLocaleDateString()}
                 </TableCell>
                 <TableCell>
-                  {b.status === "applied" && (
-                    <Button variant="ghost" size="sm" className="text-xs text-orange-600 h-7 px-2"
-                      onClick={() => reverse(b._id)}>
-                      Reverse
-                    </Button>
-                  )}
-                  {b.status !== "applied" && b.status !== "reversed" && (
+                  <div className="flex gap-1">
+                    {/* View is always available */}
                     <Link href={`/batches/${b._id}`}>
                       <Button variant="ghost" size="sm" className="text-xs h-7 px-2">View</Button>
                     </Link>
-                  )}
+                    {/* Reverse only for applied batches */}
+                    {b.status === "applied" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs text-orange-600 h-7 px-2"
+                        disabled={reversingId === b._id}
+                        onClick={() => reverse(b._id)}
+                      >
+                        {reversingId === b._id ? "…" : "Reverse"}
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
             {batches.length === 0 && (
               <TableRow>
                 <TableCell colSpan={9} className="text-center text-gray-400 py-8">
-                  No batches yet. <Link href="/upload" className="text-blue-600 hover:underline">Upload a report.</Link>
+                  No batches yet.{" "}
+                  <Link href="/upload" className="text-blue-600 hover:underline">Upload a report.</Link>
                 </TableCell>
               </TableRow>
             )}

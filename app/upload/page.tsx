@@ -27,21 +27,31 @@ export default function UploadPage() {
   const [saveTemplate, setSaveTemplate] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const [drag, setDrag] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch("/api/templates").then((r) => r.json()).then(setTemplates);
+    fetch("/api/templates")
+      .then((r) => r.json())
+      .then((d) => Array.isArray(d) && setTemplates(d))
+      .catch(() => {/* templates are optional */});
   }, []);
 
   function parseColumns(f: File) {
     const reader = new FileReader();
     reader.onload = (e) => {
-      const wb = XLSX.read(e.target?.result, { type: "binary" });
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
-      if (rows.length > 0) setColumns(Object.keys(rows[0]));
+      try {
+        const wb = XLSX.read(e.target?.result, { type: "binary" });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+        if (rows.length > 0) setColumns(Object.keys(rows[0]));
+        else setColumns([]);
+      } catch {
+        setUploadError("Could not parse this file. Please use .xlsx, .xls or .csv.");
+      }
     };
+    reader.onerror = () => setUploadError("Failed to read file.");
     reader.readAsBinaryString(f);
   }
 
@@ -50,6 +60,7 @@ export default function UploadPage() {
     setColumns([]);
     setNameCol("");
     setQtyCol("");
+    setUploadError("");
     parseColumns(f);
   }
 
@@ -65,41 +76,52 @@ export default function UploadPage() {
     setDrag(false);
     const f = e.dataTransfer.files[0];
     if (f) handleFile(f);
-  // handleFile is defined inline and stable — no re-creation needed
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function upload() {
     if (!file || !nameCol || !qtyCol) return;
     setUploading(true);
+    setUploadError("");
 
-    if (saveTemplate && templateName) {
-      await fetch("/api/templates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: templateName, type: batchType, columnMap: { name: nameCol, qty: qtyCol } }),
-      });
+    try {
+      if (saveTemplate && templateName) {
+        await fetch("/api/templates", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: templateName, type: batchType, columnMap: { name: nameCol, qty: qtyCol } }),
+        });
+      }
+
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("nameCol", nameCol);
+      fd.append("qtyCol", qtyCol);
+      fd.append("source", source || file.name);
+      fd.append("type", batchType);
+
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setUploadError(err.error || `Upload failed (${res.status})`);
+        return;
+      }
+
+      const data = await res.json();
+
+      if (data.duplicateWarning) {
+        const ok = confirm(
+          `This exact file was already applied on ${new Date(data.duplicateDate).toLocaleDateString()}.\nApplying again will double-${batchType === "sale" ? "subtract" : "add"}. Continue?`
+        );
+        if (!ok) return;
+      }
+
+      router.push(`/batches/${data.batch._id}`);
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
     }
-
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("nameCol", nameCol);
-    fd.append("qtyCol", qtyCol);
-    fd.append("source", source || file.name);
-    fd.append("type", batchType);
-
-    const res = await fetch("/api/upload", { method: "POST", body: fd });
-    const data = await res.json();
-    setUploading(false);
-
-    if (data.duplicateWarning) {
-      const ok = confirm(
-        `This exact file was already applied on ${new Date(data.duplicateDate).toLocaleDateString()}.\nApplying again will double-${batchType === "sale" ? "subtract" : "add"}. Continue?`
-      );
-      if (!ok) return;
-    }
-
-    router.push(`/batches/${data.batch._id}`);
   }
 
   return (
@@ -122,14 +144,21 @@ export default function UploadPage() {
       <Card>
         <CardContent className="space-y-4 pt-4">
           <div
-            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${drag ? "border-green-500 bg-green-50" : "border-gray-200 hover:border-gray-300"}`}
+            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+              drag ? "border-green-500 bg-green-50" : "border-gray-200 hover:border-gray-300"
+            }`}
             onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
             onDragLeave={() => setDrag(false)}
             onDrop={onDrop}
             onClick={() => inputRef.current?.click()}
           >
-            <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
-              onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+            />
             {file ? (
               <p className="text-sm font-medium text-green-700">{file.name}</p>
             ) : (
@@ -159,7 +188,7 @@ export default function UploadPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs mb-1">Product name column</Label>
-                  <Select value={nameCol} onValueChange={(v) => setNameCol(v ?? "")}>
+                  <Select value={nameCol} onValueChange={(v) => setNameCol(v)}>
                     <SelectTrigger><SelectValue placeholder="Pick column" /></SelectTrigger>
                     <SelectContent>
                       {columns.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
@@ -168,7 +197,7 @@ export default function UploadPage() {
                 </div>
                 <div>
                   <Label className="text-xs mb-1">Quantity column</Label>
-                  <Select value={qtyCol} onValueChange={(v) => setQtyCol(v ?? "")}>
+                  <Select value={qtyCol} onValueChange={(v) => setQtyCol(v)}>
                     <SelectTrigger><SelectValue placeholder="Pick column" /></SelectTrigger>
                     <SelectContent>
                       {columns.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
@@ -178,17 +207,34 @@ export default function UploadPage() {
               </div>
 
               <div className="flex items-center gap-2">
-                <input type="checkbox" id="saveT" checked={saveTemplate} onChange={(e) => setSaveTemplate(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  id="saveT"
+                  checked={saveTemplate}
+                  onChange={(e) => setSaveTemplate(e.target.checked)}
+                />
                 <Label htmlFor="saveT" className="text-xs cursor-pointer">Save as template</Label>
                 {saveTemplate && (
-                  <Input placeholder="Template name" value={templateName}
-                    onChange={(e) => setTemplateName(e.target.value)} className="flex-1 h-7 text-xs" />
+                  <Input
+                    placeholder="Template name"
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    className="flex-1 h-7 text-xs"
+                  />
                 )}
               </div>
             </>
           )}
 
-          <Button className="w-full" onClick={upload} disabled={!file || !nameCol || !qtyCol || uploading}>
+          {uploadError && (
+            <p className="text-sm text-red-500">{uploadError}</p>
+          )}
+
+          <Button
+            className="w-full"
+            onClick={upload}
+            disabled={!file || !nameCol || !qtyCol || uploading}
+          >
             {uploading ? "Parsing…" : "Parse & Preview →"}
           </Button>
         </CardContent>

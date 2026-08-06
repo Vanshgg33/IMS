@@ -4,24 +4,38 @@ import { connectDB } from "@/lib/db";
 import Variant from "@/models/Variant";
 import { normalizeName } from "@/lib/normalize";
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  await connectDB();
-  const { raw } = await req.json();
-  const key = normalizeName(raw);
-  const variant = await Variant.findById(params.id);
-  if (!variant) return NextResponse.json({ error: "Not found" }, { status: 404 });
+export const dynamic = "force-dynamic";
 
-  const alreadyExists = variant.aliases.some((a: any) => a.key === key) || variant.nameKey === key;
-  if (!alreadyExists) {
-    variant.aliases.push({ raw, key });
-    await variant.save();
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    await connectDB();
+    const { raw } = await req.json();
+    if (!raw?.trim()) return NextResponse.json({ error: "raw is required" }, { status: 400 });
+
+    const key = normalizeName(raw);
+    const variant = await Variant.findById(params.id);
+    if (!variant) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    const alreadyExists = variant.aliases.some((a: any) => a.key === key) || variant.nameKey === key;
+    if (!alreadyExists) {
+      variant.aliases.push({ raw: raw.trim(), key });
+      await variant.save();
+    }
+    return NextResponse.json(variant);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
-  return NextResponse.json(variant);
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
-  await connectDB();
-  const { key } = await req.json();
-  await Variant.findByIdAndUpdate(params.id, { $pull: { aliases: { key } } });
-  return NextResponse.json({ ok: true });
+  try {
+    await connectDB();
+    const { key } = await req.json();
+    await Variant.findByIdAndUpdate(params.id, { $pull: { aliases: { key } } });
+    return NextResponse.json({ ok: true });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }

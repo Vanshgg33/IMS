@@ -24,6 +24,7 @@ const EMPTY_FORM = { productName: "", variantLabel: "", unit: "unit", stockQty: 
 export default function ProductsPage() {
   const [variants, setVariants] = useState<Variant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [editTarget, setEditTarget] = useState<Variant | null>(null);
   const [aliasTarget, setAliasTarget] = useState<Variant | null>(null);
@@ -31,36 +32,57 @@ export default function ProductsPage() {
   const [newAlias, setNewAlias] = useState("");
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   async function load() {
-    const res = await fetch("/api/variants");
-    const fresh: Variant[] = await res.json();
-    setVariants(fresh);
-    setLoading(false);
-    return fresh;
+    setLoadError("");
+    try {
+      const res = await fetch("/api/variants");
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
+      const fresh: Variant[] = await res.json();
+      setVariants(fresh);
+      return fresh;
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to load variants");
+      return [] as Variant[];
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => { load(); }, []);
 
   async function save() {
     setSaving(true);
-    if (editTarget) {
-      await fetch(`/api/variants/${editTarget._id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-    } else {
-      await fetch("/api/variants", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
+    setSaveError("");
+    try {
+      let res: Response;
+      if (editTarget) {
+        res = await fetch(`/api/variants/${editTarget._id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(form),
+        });
+      } else {
+        res = await fetch("/api/variants", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(form),
+        });
+      }
+      if (!res.ok) {
+        const data = await res.json();
+        setSaveError(data.error || "Save failed");
+        return;
+      }
+      setShowAdd(false);
+      setEditTarget(null);
+      setForm(EMPTY_FORM);
+      load();
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    setShowAdd(false);
-    setEditTarget(null);
-    setForm(EMPTY_FORM);
-    load();
   }
 
   async function archive(id: string) {
@@ -105,11 +127,17 @@ export default function ProductsPage() {
         <h1 className="text-xl font-bold">Products</h1>
         <div className="flex gap-2">
           <Input placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} className="w-48" />
-          <Button onClick={() => { setForm(EMPTY_FORM); setEditTarget(null); setShowAdd(true); }} size="sm">
+          <Button onClick={() => { setForm(EMPTY_FORM); setEditTarget(null); setSaveError(""); setShowAdd(true); }} size="sm">
             + Add Variant
           </Button>
         </div>
       </div>
+
+      {loadError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+          {loadError} — <button className="underline" onClick={() => { setLoading(true); load(); }}>retry</button>
+        </div>
+      )}
 
       {loading ? (
         <p className="text-gray-400 text-sm">Loading…</p>
@@ -147,7 +175,12 @@ export default function ProductsPage() {
                 <TableCell>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs"
-                      onClick={() => { setForm({ productName: v.productName, variantLabel: v.variantLabel, unit: v.unit, stockQty: v.stockQty, reorderLevel: v.reorderLevel }); setEditTarget(v); setShowAdd(true); }}>
+                      onClick={() => {
+                        setForm({ productName: v.productName, variantLabel: v.variantLabel, unit: v.unit, stockQty: v.stockQty, reorderLevel: v.reorderLevel });
+                        setEditTarget(v);
+                        setSaveError("");
+                        setShowAdd(true);
+                      }}>
                       Edit
                     </Button>
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-red-500"
@@ -165,7 +198,7 @@ export default function ProductsPage() {
         </Table>
       )}
 
-      <Dialog open={showAdd} onOpenChange={(o) => { setShowAdd(o); if (!o) setEditTarget(null); }}>
+      <Dialog open={showAdd} onOpenChange={(o) => { setShowAdd(o); if (!o) { setEditTarget(null); setSaveError(""); } }}>
         <DialogContent>
           <DialogHeader><DialogTitle>{editTarget ? "Edit Variant" : "Add Variant"}</DialogTitle></DialogHeader>
           <div className="grid gap-3 py-2">
@@ -184,9 +217,10 @@ export default function ProductsPage() {
                 </div>
               ))}
             </div>
+            {saveError && <p className="text-sm text-red-500">{saveError}</p>}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowAdd(false); setEditTarget(null); }}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setShowAdd(false); setEditTarget(null); setSaveError(""); }}>Cancel</Button>
             <Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
           </DialogFooter>
         </DialogContent>

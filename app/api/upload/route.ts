@@ -6,6 +6,8 @@ import { buildIndex, matchName } from "@/lib/matchRow";
 import * as XLSX from "xlsx";
 import crypto from "crypto";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   await connectDB();
 

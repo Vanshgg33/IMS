@@ -41,50 +41,85 @@ export default function BatchPreviewPage() {
   const [variantMap, setVariantMap] = useState<Record<string, Variant>>({});
   const [allVariants, setAllVariants] = useState<Variant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [applying, setApplying] = useState(false);
+  const [applyError, setApplyError] = useState("");
 
   const load = useCallback(async () => {
-    const [batchRes, varRes] = await Promise.all([
-      fetch(`/api/batches/${id}`),
-      fetch("/api/variants"),
-    ]);
-    const { batch: b, variantMap: vm } = await batchRes.json();
-    setBatch(b);
-    setVariantMap(vm);
-    setAllVariants(await varRes.json());
-    setLoading(false);
+    setLoadError("");
+    try {
+      const [batchRes, varRes] = await Promise.all([
+        fetch(`/api/batches/${id}`),
+        fetch("/api/variants"),
+      ]);
+      if (!batchRes.ok) {
+        const err = await batchRes.json().catch(() => ({}));
+        throw new Error(err.error || `Failed to load batch (${batchRes.status})`);
+      }
+      const { batch: b, variantMap: vm } = await batchRes.json();
+      const variants = await varRes.json();
+      setBatch(b);
+      setVariantMap(vm ?? {});
+      setAllVariants(Array.isArray(variants) ? variants : []);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to load batch");
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
 
   async function resolveRow(rowIndex: number, variantId: string, saveAlias = true) {
-    await fetch(`/api/batches/${id}/rows`, {
+    const res = await fetch(`/api/batches/${id}/rows`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ rowIndex, variantId, saveAlias }),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || "Failed to resolve row");
+      return;
+    }
     load();
   }
 
   async function applyBatch() {
     setApplying(true);
-    const res = await fetch(`/api/batches/${id}/apply`, { method: "POST" });
-    if (res.ok) {
-      router.push("/batches");
-    } else {
-      const err = await res.json();
-      alert(err.error);
+    setApplyError("");
+    try {
+      const res = await fetch(`/api/batches/${id}/apply`, { method: "POST" });
+      if (res.ok) {
+        router.push("/batches");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setApplyError(err.error || "Apply failed — check the console");
+      }
+    } catch (e) {
+      setApplyError(e instanceof Error ? e.message : "Apply failed");
+    } finally {
+      setApplying(false);
     }
-    setApplying(false);
   }
 
   if (loading) return <p className="text-gray-400 text-sm">Loading…</p>;
+
+  if (loadError) {
+    return (
+      <div className="p-4 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+        {loadError} —{" "}
+        <button className="underline" onClick={() => { setLoading(true); load(); }}>
+          retry
+        </button>
+      </div>
+    );
+  }
+
   if (!batch) return <p className="text-red-500">Batch not found.</p>;
 
   const isSale = batch.type === "sale";
   const delta = (qty: number) => (isSale ? -qty : qty);
 
-  // aggregate per variant for preview summary
   const aggregated = new Map<string, number>();
   for (const r of batch.rows) {
     if (r.status === "matched" && r.matchedVariant) {
@@ -100,18 +135,31 @@ export default function BatchPreviewPage() {
         <div>
           <h1 className="text-xl font-bold">{batch.fileName}</h1>
           <p className="text-sm text-gray-500">
-            {batch.source} · <Badge variant={isSale ? "destructive" : "default"} className="text-xs">{batch.type}</Badge>
-            {" · "}<span className="capitalize">{batch.status}</span>
+            {batch.source} ·{" "}
+            <Badge variant={isSale ? "destructive" : "default"} className="text-xs">
+              {batch.type}
+            </Badge>
+            {" · "}
+            <span className="capitalize">{batch.status}</span>
           </p>
         </div>
         {!isApplied && (
-          <Button onClick={applyBatch} disabled={applying || batch.totals.matched === 0}
-            className={isSale ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"}>
-            {applying ? "Applying…" : `Apply ${isSale ? "→ Subtract Stock" : "→ Add Stock"}`}
-          </Button>
+          <div className="flex flex-col items-end gap-1">
+            <Button
+              onClick={applyBatch}
+              disabled={applying || batch.totals.matched === 0}
+              className={isSale ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"}
+            >
+              {applying ? "Applying…" : `Apply ${isSale ? "→ Subtract Stock" : "→ Add Stock"}`}
+            </Button>
+            {applyError && <p className="text-xs text-red-500">{applyError}</p>}
+          </div>
         )}
         {batch.status === "applied" && (
           <Badge className="bg-green-100 text-green-700 border border-green-300">Applied</Badge>
+        )}
+        {batch.status === "reversed" && (
+          <Badge className="bg-orange-100 text-orange-700 border border-orange-300">Reversed</Badge>
         )}
       </div>
 
@@ -204,13 +252,24 @@ export default function BatchPreviewPage() {
                     <TableCell className="text-sm font-mono">{r.rawName}</TableCell>
                     <TableCell className="text-right font-mono text-sm">{r.qty}</TableCell>
                     <TableCell>
-                      {r.status === "matched" && <Badge className="bg-green-100 text-green-700 border-green-300 text-xs">{r.matchType}</Badge>}
-                      {r.status === "unmatched" && <Badge variant="destructive" className="text-xs">unmatched</Badge>}
-                      {r.status === "skipped" && <Badge variant="secondary" className="text-xs">skipped</Badge>}
+                      {r.status === "matched" && (
+                        <Badge className="bg-green-100 text-green-700 border-green-300 text-xs">
+                          {r.matchType}
+                        </Badge>
+                      )}
+                      {r.status === "unmatched" && (
+                        <Badge variant="destructive" className="text-xs">unmatched</Badge>
+                      )}
+                      {r.status === "skipped" && (
+                        <Badge variant="secondary" className="text-xs">skipped</Badge>
+                      )}
                     </TableCell>
                     <TableCell className="min-w-[260px]">
                       {r.status === "matched" && v && (
                         <span className="text-sm text-gray-700">{v.nameCanonical}</span>
+                      )}
+                      {r.status === "matched" && !v && (
+                        <span className="text-sm text-gray-400 italic">variant not found</span>
                       )}
                       {r.status === "unmatched" && !isApplied && (
                         <div className="flex flex-col gap-1">
@@ -218,15 +277,19 @@ export default function BatchPreviewPage() {
                             <div className="flex flex-wrap gap-1 mb-1">
                               <span className="text-xs text-gray-400">Suggestions:</span>
                               {r.suggestions.map((s) => (
-                                <Button key={s.variantId} variant="outline" size="sm"
+                                <Button
+                                  key={s.variantId}
+                                  variant="outline"
+                                  size="sm"
                                   className="text-xs h-6 px-2"
-                                  onClick={() => resolveRow(r.rowIndex, s.variantId, true)}>
+                                  onClick={() => resolveRow(r.rowIndex, s.variantId, true)}
+                                >
                                   {s.nameCanonical} ({Math.round(s.score * 100)}%)
                                 </Button>
                               ))}
                             </div>
                           )}
-                          <Select onValueChange={(v: string | null) => { if (v) resolveRow(r.rowIndex, v, true); }}>
+                          <Select onValueChange={(v) => resolveRow(r.rowIndex, v, true)}>
                             <SelectTrigger className="h-7 text-xs w-full">
                               <SelectValue placeholder="Pick variant manually…" />
                             </SelectTrigger>
