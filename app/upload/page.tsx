@@ -66,6 +66,7 @@ export default function UploadPage() {
   const [qtyCol, setQtyCol] = useState("");
   const [source, setSource] = useState("");
   const [batchType, setBatchType] = useState<"sale" | "purchase">("sale");
+  const [store, setStore] = useState<"raipur" | "bhilai" | "rajnandgaon">("raipur");
   const [templates, setTemplates] = useState<Template[]>([]);
   const [saveTemplate, setSaveTemplate] = useState(false);
   const [templateName, setTemplateName] = useState("");
@@ -156,6 +157,7 @@ export default function UploadPage() {
       fd.append("qtyCol", qtyCol);
       fd.append("source", source || file.name);
       fd.append("type", batchType);
+      fd.append("store", store);
       fd.append("saleDate", saleDate);
 
       const res = await fetch("/api/upload", { method: "POST", body: fd });
@@ -260,15 +262,26 @@ export default function UploadPage() {
           {/* Column configuration — shown after file is loaded */}
           {columns.length > 0 && (
             <>
-              {/* Report type + date */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Report type + store + date */}
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label className="text-xs mb-1">Report type</Label>
                   <Select value={batchType} onValueChange={(v) => setBatchType(v as "sale" | "purchase")}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="sale">Sale (subtract stock)</SelectItem>
-                      <SelectItem value="purchase">Purchase (add stock)</SelectItem>
+                      <SelectItem value="sale">Sale (subtract)</SelectItem>
+                      <SelectItem value="purchase">Purchase (add)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs mb-1">Store</Label>
+                  <Select value={store} onValueChange={(v) => setStore(v as "raipur" | "bhilai" | "rajnandgaon")}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="raipur">Raipur</SelectItem>
+                      <SelectItem value="bhilai">Bhilai</SelectItem>
+                      <SelectItem value="rajnandgaon">Rajnandgaon</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

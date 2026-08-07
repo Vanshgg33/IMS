@@ -24,6 +24,7 @@ const UploadBatchSchema = new mongoose.Schema(
     fileHash:  { type: String, index: true },
     source:    String,
     type:      { type: String, enum: ["sale", "purchase"], default: "sale" },
+    store:     { type: String, enum: ["raipur", "bhilai", "rajnandgaon"] },
     columnMap: { name: String, qty: String },
     rows:      [RowSchema],
     status:    {

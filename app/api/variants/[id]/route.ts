@@ -24,21 +24,30 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       variant.nameKey = normalizeName(variant.nameCanonical);
     }
 
-    // Handle manual stock adjustment — create ledger entry for audit trail
-    if (body.stockQty !== undefined && body.stockQty !== variant.stockQty) {
-      const delta = body.stockQty - variant.stockQty;
-      variant.stockQty = body.stockQty;
-      await variant.save();
-      await StockLedger.create({
-        variant: variant._id,
-        delta,
-        reason: "adjustment",
-        balanceAfter: variant.stockQty,
-        note: "Manual adjustment via edit",
-      });
-    } else {
-      await variant.save();
+    // Handle per-store stock adjustments — create ledger entry for each changed store
+    if (body.stock) {
+      if (!variant.stock) variant.stock = { raipur: 0, bhilai: 0, rajnandgaon: 0 };
+      const stores = ["raipur", "bhilai", "rajnandgaon"] as const;
+      let stockChanged = false;
+      for (const s of stores) {
+        const newQty = Number(body.stock[s]) || 0;
+        const oldQty = variant.stock[s] || 0;
+        if (newQty !== oldQty) {
+          variant.stock[s] = newQty;
+          stockChanged = true;
+          await StockLedger.create({
+            variant: variant._id,
+            store: s,
+            delta: newQty - oldQty,
+            reason: "adjustment",
+            balanceAfter: newQty,
+            note: "Manual adjustment via edit",
+          });
+        }
+      }
+      if (stockChanged) variant.markModified("stock");
     }
+    await variant.save();
 
     return NextResponse.json(variant);
   } catch (err: unknown) {

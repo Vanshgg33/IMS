@@ -18,10 +18,15 @@ export async function POST(req: NextRequest) {
     const qtyCol = formData.get("qtyCol") as string;
     const source = (formData.get("source") as string) || "manual";
     const batchType = (formData.get("type") as string) || "sale";
+    const store = (formData.get("store") as string) || "raipur";
     const saleDateRaw = formData.get("saleDate") as string;
 
+    const validStores = ["raipur", "bhilai", "rajnandgaon"];
     if (!file || !nameCol || !qtyCol) {
       return NextResponse.json({ error: "Missing file or column mapping" }, { status: 400 });
+    }
+    if (!validStores.includes(store)) {
+      return NextResponse.json({ error: "Invalid store" }, { status: 400 });
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -82,6 +87,7 @@ export async function POST(req: NextRequest) {
       fileHash,
       source,
       type: batchType,
+      store,
       columnMap: { name: nameCol, qty: qtyCol },
       rows,
       status: "parsed",

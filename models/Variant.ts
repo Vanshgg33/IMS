@@ -14,7 +14,11 @@ const VariantSchema = new mongoose.Schema(
     nameKey:       { type: String, required: true, unique: true, index: true },
     aliases:       [AliasSchema],
     unit:          { type: String, default: "unit" },
-    stockQty:      { type: Number, default: 0 },
+    stock: {
+      raipur:      { type: Number, default: 0 },
+      bhilai:      { type: Number, default: 0 },
+      rajnandgaon: { type: Number, default: 0 },
+    },
     reorderLevel:  { type: Number, default: 0 },
     active:        { type: Boolean, default: true },
   },

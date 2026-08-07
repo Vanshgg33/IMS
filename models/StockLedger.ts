@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const StockLedgerSchema = new mongoose.Schema(
   {
     variant:      { type: mongoose.Schema.Types.ObjectId, ref: "Variant", index: true },
+    store:        { type: String, enum: ["raipur", "bhilai", "rajnandgaon"], index: true },
     delta:        Number,
     reason:       { type: String, enum: ["sale", "purchase", "reversal", "seed", "adjustment"] },
     batch:        { type: mongoose.Schema.Types.ObjectId, ref: "UploadBatch" },

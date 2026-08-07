@@ -10,6 +10,7 @@ interface Entry {
   _id: string;
   delta: number;
   reason: string;
+  store?: string;
   balanceAfter: number;
   createdAt: string;
   variant: { nameCanonical: string; sku: string };
@@ -33,8 +34,13 @@ function LedgerTable() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
+    setLoading(true);
     const url = variantId ? `/api/ledger?variantId=${variantId}` : "/api/ledger";
-    fetch(url).then((r) => r.json()).then((d) => { setEntries(d); setLoading(false); });
+    fetch(url)
+      .then((r) => r.json())
+      .then((d) => { setEntries(Array.isArray(d) ? d : []); })
+      .catch(() => { setEntries([]); })
+      .finally(() => setLoading(false));
   }, [searchParams, variantId]);
 
   const filtered = entries.filter((e) =>
@@ -74,6 +80,7 @@ function LedgerTable() {
               <TableHead>Sale Date</TableHead>
               <TableHead>Applied At</TableHead>
               {!variantId && <TableHead>Variant</TableHead>}
+              <TableHead>Store</TableHead>
               <TableHead>Reason</TableHead>
               <TableHead className="text-right">Delta</TableHead>
               <TableHead className="text-right">Balance After</TableHead>
@@ -92,6 +99,9 @@ function LedgerTable() {
                   {new Date(e.createdAt).toLocaleString()}
                 </TableCell>
                 {!variantId && <TableCell className="text-sm">{e.variant?.nameCanonical ?? "—"}</TableCell>}
+                <TableCell style={{ fontSize: "12px", fontWeight: 600, textTransform: "capitalize", color: "var(--nl-text-2)" }}>
+                  {e.store ?? "—"}
+                </TableCell>
                 <TableCell>
                   {(() => {
                     const s = REASON_STYLES[e.reason] || REASON_STYLES.adjustment;
@@ -113,7 +123,7 @@ function LedgerTable() {
             ))}
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={variantId ? 6 : 7} className="text-center text-gray-400 py-8">No entries.</TableCell>
+                <TableCell colSpan={variantId ? 7 : 8} className="text-center text-gray-400 py-8">No entries.</TableCell>
               </TableRow>
             )}
           </TableBody>

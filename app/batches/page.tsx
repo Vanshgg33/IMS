@@ -9,6 +9,7 @@ interface Batch {
   fileName: string;
   source: string;
   type: "sale" | "purchase";
+  store: string;
   status: string;
   totals: { rows: number; matched: number; unmatched: number; unitsProcessed: number };
   createdAt: string;
@@ -92,6 +93,7 @@ export default function BatchesPage() {
               <TableHead>File</TableHead>
               <TableHead>Source</TableHead>
               <TableHead>Type</TableHead>
+              <TableHead>Store</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Rows</TableHead>
               <TableHead className="text-right">Matched</TableHead>
@@ -122,6 +124,9 @@ export default function BatchesPage() {
                   }}>
                     {b.type === "sale" ? "▾ sale" : "▴ purchase"}
                   </span>
+                </TableCell>
+                <TableCell style={{ fontSize: "12.5px", fontWeight: 600, color: "var(--nl-text-2)", textTransform: "capitalize" }}>
+                  {b.store || "—"}
                 </TableCell>
                 <TableCell>
                   {(() => {
@@ -167,7 +172,7 @@ export default function BatchesPage() {
             ))}
             {batches.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-gray-400 py-8">
+                <TableCell colSpan={11} className="text-center text-gray-400 py-8">
                   No batches yet.{" "}
                   <Link href="/upload" className="text-blue-600 hover:underline">Upload a report.</Link>
                 </TableCell>

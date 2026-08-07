@@ -13,6 +13,11 @@ export async function applyBatch(batchId: string) {
 
       const isSale = batch.type === "sale";
       const ledgerReason: "sale" | "purchase" = isSale ? "sale" : "purchase";
+      const VALID_STORES = ["raipur", "bhilai", "rajnandgaon"];
+      if (!batch.store || !VALID_STORES.includes(batch.store)) {
+        throw new Error("Batch has no valid store — cannot apply");
+      }
+      const store = batch.store as "raipur" | "bhilai" | "rajnandgaon";
 
       const byVariant = new Map<string, number>();
       for (const r of batch.rows) {
@@ -26,10 +31,12 @@ export async function applyBatch(batchId: string) {
         const v = await Variant.findById(variantId).session(session);
         if (!v) continue;
         const delta = isSale ? -qty : qty;
-        v.stockQty += delta;
+        if (!v.stock) v.stock = { raipur: 0, bhilai: 0, rajnandgaon: 0 };
+        v.stock[store] = (v.stock[store] || 0) + delta;
+        v.markModified("stock");
         await v.save({ session });
         await StockLedger.create(
-          [{ variant: v._id, delta, reason: ledgerReason, batch: batch._id, balanceAfter: v.stockQty }],
+          [{ variant: v._id, store, delta, reason: ledgerReason, batch: batch._id, balanceAfter: v.stock[store] }],
           { session }
         );
         unitsProcessed += qty;
@@ -55,6 +62,11 @@ export async function reverseBatch(batchId: string) {
       if (batch.status !== "applied") throw new Error("Batch not in applied state");
 
       const isSale = batch.type === "sale";
+      const VALID_STORES = ["raipur", "bhilai", "rajnandgaon"];
+      if (!batch.store || !VALID_STORES.includes(batch.store)) {
+        throw new Error("Batch has no valid store — cannot reverse");
+      }
+      const store = batch.store as "raipur" | "bhilai" | "rajnandgaon";
 
       const byVariant = new Map<string, number>();
       for (const r of batch.rows) {
@@ -67,10 +79,12 @@ export async function reverseBatch(batchId: string) {
         const v = await Variant.findById(variantId).session(session);
         if (!v) continue;
         const delta = isSale ? qty : -qty; // reverse of apply
-        v.stockQty += delta;
+        if (!v.stock) v.stock = { raipur: 0, bhilai: 0, rajnandgaon: 0 };
+        v.stock[store] = (v.stock[store] || 0) + delta;
+        v.markModified("stock");
         await v.save({ session });
         await StockLedger.create(
-          [{ variant: v._id, delta, reason: "reversal", batch: batch._id, balanceAfter: v.stockQty }],
+          [{ variant: v._id, store, delta, reason: "reversal", batch: batch._id, balanceAfter: v.stock[store] }],
           { session }
         );
       }

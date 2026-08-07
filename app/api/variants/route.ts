@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   try {
     await connectDB();
     const body = await req.json();
-    const { productName, variantLabel, unit, stockQty, reorderLevel } = body;
+    const { productName, variantLabel, unit, stock, reorderLevel } = body;
 
     if (!productName?.trim() || !variantLabel?.trim()) {
       return NextResponse.json({ error: "productName and variantLabel are required" }, { status: 400 });
@@ -37,6 +37,12 @@ export async function POST(req: NextRequest) {
     const existing = await Variant.findOne({ nameKey });
     if (existing) return NextResponse.json({ error: "A variant with this name already exists" }, { status: 409 });
 
+    const initStock = {
+      raipur:      Number(stock?.raipur)      || 0,
+      bhilai:      Number(stock?.bhilai)      || 0,
+      rajnandgaon: Number(stock?.rajnandgaon) || 0,
+    };
+
     const variant = await Variant.create({
       sku: makeSKU(),
       productName: productName.trim(),
@@ -44,17 +50,21 @@ export async function POST(req: NextRequest) {
       nameCanonical,
       nameKey,
       unit: unit || "unit",
-      stockQty: stockQty || 0,
+      stock: initStock,
       reorderLevel: reorderLevel || 0,
     });
 
-    if (stockQty > 0) {
-      await StockLedger.create({
-        variant: variant._id,
-        delta: stockQty,
-        reason: "seed",
-        balanceAfter: stockQty,
-      });
+    const stores = ["raipur", "bhilai", "rajnandgaon"] as const;
+    for (const s of stores) {
+      if (initStock[s] > 0) {
+        await StockLedger.create({
+          variant: variant._id,
+          store: s,
+          delta: initStock[s],
+          reason: "seed",
+          balanceAfter: initStock[s],
+        });
+      }
     }
 
     return NextResponse.json(variant, { status: 201 });

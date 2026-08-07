@@ -21,13 +21,14 @@ interface Variant {
   _id: string;
   nameCanonical: string;
   sku: string;
-  stockQty: number;
+  stock: { raipur: number; bhilai: number; rajnandgaon: number };
 }
 
 interface Batch {
   _id: string;
   fileName: string;
   type: "sale" | "purchase";
+  store: string;
   status: string;
   source: string;
   saleDate?: string;
@@ -152,6 +153,8 @@ export default function BatchPreviewPage() {
               {batch.type}
             </Badge>
             {" · "}
+            <span style={{ fontWeight: 600, textTransform: "capitalize" }}>{batch.store}</span>
+            {" · "}
             <span className="capitalize">{batch.status}</span>
             {batch.saleDate && (
               <> · {isSale ? "Sale" : "Purchase"} date: <span className="font-medium text-gray-700">{new Date(batch.saleDate).toLocaleDateString()}</span></>
@@ -224,7 +227,9 @@ export default function BatchPreviewPage() {
                 {Array.from(aggregated.entries()).map(([vId, qty]) => {
                   const v = variantMap[vId];
                   if (!v) return null;
-                  const after = v.stockQty + delta(qty);
+                  const store = batch.store as "raipur" | "bhilai" | "rajnandgaon";
+                  const currentQty = v.stock?.[store] ?? 0;
+                  const after = currentQty + delta(qty);
                   return (
                     <TableRow key={vId} className={after < 0 ? "bg-red-50" : ""}>
                       <TableCell className="text-sm">{v.nameCanonical}</TableCell>
@@ -233,7 +238,7 @@ export default function BatchPreviewPage() {
                           {isSale ? "-" : "+"}{qty}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right font-mono text-sm text-gray-400">{v.stockQty}</TableCell>
+                      <TableCell className="text-right font-mono text-sm text-gray-400">{currentQty}</TableCell>
                       <TableCell className="text-right font-mono font-bold">
                         <span className={after < 0 ? "text-red-600" : ""}>{after}</span>
                         {after < 0 && <span className="ml-1 text-xs text-red-500">⚠ negative</span>}
