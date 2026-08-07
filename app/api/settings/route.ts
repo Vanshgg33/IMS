@@ -24,9 +24,13 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "alertEmails must be an array" }, { status: 400 });
     }
 
-    const emails = body.alertEmails
-      .map((e: unknown) => (typeof e === "string" ? e.trim().toLowerCase() : ""))
-      .filter((e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+    const emails = [
+      ...new Set(
+        body.alertEmails
+          .map((e: unknown) => (typeof e === "string" ? e.trim().toLowerCase() : ""))
+          .filter((e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))
+      ),
+    ];
 
     const settings = await Settings.findByIdAndUpdate(
       "global",

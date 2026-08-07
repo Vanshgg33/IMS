@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, AlertTriangle, PackageX, Boxes, Search, MapPin, ChevronRight } from "lucide-react";
+import { Package, AlertTriangle, PackageX, Boxes, Search, MapPin } from "lucide-react";
 
 const STORES = ["raipur", "bhilai", "rajnandgaon"] as const;
 type Store = typeof STORES[number];

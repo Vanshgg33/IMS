@@ -22,11 +22,15 @@ export async function POST(req: NextRequest) {
     const saleDateRaw = formData.get("saleDate") as string;
 
     const validStores = ["raipur", "bhilai", "rajnandgaon"];
+    const validTypes  = ["sale", "purchase"];
     if (!file || !nameCol || !qtyCol) {
       return NextResponse.json({ error: "Missing file or column mapping" }, { status: 400 });
     }
     if (!validStores.includes(store)) {
       return NextResponse.json({ error: "Invalid store" }, { status: 400 });
+    }
+    if (!validTypes.includes(batchType)) {
+      return NextResponse.json({ error: "Invalid type — must be 'sale' or 'purchase'" }, { status: 400 });
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
