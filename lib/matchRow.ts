@@ -12,16 +12,18 @@ interface VariantDoc {
 export interface MatchIndex {
   variants: VariantDoc[];
   exact: Map<string, string>;
+  alias: Map<string, string>;
 }
 
 export async function buildIndex(): Promise<MatchIndex> {
   const variants = await Variant.find({ active: true }).lean();
   const exact = new Map<string, string>();
+  const alias = new Map<string, string>();
   for (const v of variants) {
     exact.set(v.nameKey, String(v._id));
-    for (const a of v.aliases || []) exact.set(a.key, String(v._id));
+    for (const a of v.aliases || []) alias.set(a.key, String(v._id));
   }
-  return { variants, exact };
+  return { variants, exact, alias };
 }
 
 export function matchName(rawName: string, index: MatchIndex) {
@@ -29,6 +31,9 @@ export function matchName(rawName: string, index: MatchIndex) {
 
   if (index.exact.has(key)) {
     return { status: "matched", matchType: "exact", variantId: index.exact.get(key)! };
+  }
+  if (index.alias.has(key)) {
+    return { status: "matched", matchType: "alias", variantId: index.alias.get(key)! };
   }
 
   const candidateKeys = index.variants.map((v) => v.nameKey);

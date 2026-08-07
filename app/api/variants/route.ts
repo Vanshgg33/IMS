@@ -11,9 +11,14 @@ function makeSKU() {
 }
 
 export async function GET() {
-  await connectDB();
-  const variants = await Variant.find({ active: true }).sort({ productName: 1, variantLabel: 1 }).lean();
-  return NextResponse.json(variants);
+  try {
+    await connectDB();
+    const variants = await Variant.find({ active: true }).sort({ productName: 1, variantLabel: 1 }).lean();
+    return NextResponse.json(variants);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
