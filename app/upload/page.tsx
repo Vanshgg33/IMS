@@ -201,7 +201,10 @@ export default function UploadPage() {
 
   return (
     <div className="max-w-xl">
-      <h1 className="text-xl font-bold mb-4">Upload Report</h1>
+      <div style={{ marginBottom: "20px" }}>
+        <h1 style={{ fontFamily: "var(--font-display)", fontSize: "22px", fontWeight: 700, color: "var(--nl-text)", margin: 0, letterSpacing: "-0.01em" }}>Upload Report</h1>
+        <p style={{ fontSize: "13px", color: "var(--nl-text-3)", marginTop: "3px" }}>Import an Excel or CSV sales/purchase report</p>
+      </div>
 
       {templates.length > 0 && (
         <Card className="mb-4">
@@ -221,13 +224,21 @@ export default function UploadPage() {
 
           {/* Drop zone */}
           <div
-            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-              drag ? "border-green-500 bg-green-50" : "border-gray-200 hover:border-gray-300"
-            }`}
+            style={{
+              border: `2px dashed ${drag ? "var(--nl-amber)" : "hsl(var(--border))"}`,
+              borderRadius: "10px",
+              padding: "32px 24px",
+              textAlign: "center",
+              cursor: "pointer",
+              transition: "border-color 0.15s, background 0.15s",
+              background: drag ? "var(--nl-amber-light)" : "hsl(var(--muted))",
+            }}
             onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
             onDragLeave={() => setDrag(false)}
             onDrop={onDrop}
             onClick={() => inputRef.current?.click()}
+            onMouseEnter={e => { if (!drag) (e.currentTarget as HTMLElement).style.borderColor = "var(--nl-green)"; }}
+            onMouseLeave={e => { if (!drag) (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border))"; }}
           >
             <input
               ref={inputRef}
@@ -237,11 +248,11 @@ export default function UploadPage() {
               onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
             />
             {file ? (
-              <p className="text-sm font-medium text-green-700">{file.name}</p>
+              <p style={{ fontSize: "13.5px", fontWeight: 700, color: "var(--nl-green)", fontFamily: "var(--font-mono)" }}>{file.name}</p>
             ) : (
               <div>
-                <p className="text-sm text-gray-500 font-medium">Drop your Excel / CSV file here</p>
-                <p className="text-xs text-gray-400 mt-1">or click to browse — .xlsx, .xls, .csv</p>
+                <p style={{ fontSize: "13.5px", color: "var(--nl-text-2)", fontWeight: 600, marginBottom: "4px" }}>Drop your Excel / CSV file here</p>
+                <p style={{ fontSize: "12px", color: "var(--nl-text-3)" }}>or click to browse — .xlsx, .xls, .csv</p>
               </div>
             )}
           </div>

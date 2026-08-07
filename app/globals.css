@@ -1,56 +1,137 @@
 @import "tw-animate-css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    /* NatureLite brand mapped to shadcn tokens (HSL, no hsl() wrapper) */
+    --background:         42 43% 97%;    /* #FDFAF5 warm cream */
+    --foreground:         29 35% 8%;     /* #1C130A near-black */
+    --card:               0 0% 100%;
+    --card-foreground:    29 35% 8%;
+    --popover:            0 0% 100%;
+    --popover-foreground: 29 35% 8%;
+    --primary:            143 71% 23%;   /* #166534 forest green */
+    --primary-foreground: 42 43% 97%;
+    --secondary:          39 55% 93%;
+    --secondary-foreground: 28 84% 30%;
+    --muted:              39 28% 91%;
+    --muted-foreground:   27 28% 50%;
+    --accent:             27 90% 37%;    /* #B45309 amber */
+    --accent-foreground:  42 43% 97%;
+    --destructive:        0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border:             38 40% 83%;    /* warm tan */
+    --input:              38 40% 83%;
+    --ring:               143 71% 23%;
+    --radius:             0.625rem;
+
+    /* NatureLite direct-use tokens */
+    --nl-green-dark:  #1B3A2D;
+    --nl-green:       #166534;
+    --nl-green-mid:   #14532D;
+    --nl-green-light: #DCFCE7;
+    --nl-amber:       #B45309;
+    --nl-amber-hover: #92400E;
+    --nl-amber-light: #FEF3C7;
+    --nl-amber-glow:  rgba(180,83,9,0.08);
+    --nl-cream:       #FDFAF5;
+    --nl-cream-2:     #FAF6EE;
+    --nl-border:      #E5D9C3;
+    --nl-border-soft: #EDE5D4;
+    --nl-text:        #1C130A;
+    --nl-text-2:      #5C3D1E;
+    --nl-text-3:      #9B7B55;
+    --nl-sidebar:     rgba(196,217,202,0.8);
+    --nl-sidebar-muted: rgba(196,217,202,0.45);
+
+    --font-display: 'Playfair Display', Georgia, serif;
+    --font-body:    'Lato', system-ui, sans-serif;
+    --font-mono:    'IBM Plex Mono', 'Courier New', monospace;
+
+    --shadow:    0 1px 4px rgba(80,40,10,0.07), 0 4px 16px rgba(80,40,10,0.04);
+    --shadow-lg: 0 4px 8px rgba(80,40,10,0.10), 0 12px 32px rgba(80,40,10,0.08);
   }
+
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --background:         155 36% 10%;
+    --foreground:         42 30% 94%;
+    --card:               155 36% 13%;
+    --card-foreground:    42 30% 94%;
+    --popover:            155 36% 13%;
+    --popover-foreground: 42 30% 94%;
+    --primary:            143 55% 48%;
+    --primary-foreground: 29 35% 8%;
+    --secondary:          155 25% 18%;
+    --secondary-foreground: 42 30% 88%;
+    --muted:              155 25% 16%;
+    --muted-foreground:   42 15% 62%;
+    --accent:             27 90% 50%;
+    --accent-foreground:  29 35% 8%;
+    --destructive:        0 63% 44%;
+    --destructive-foreground: 0 0% 98%;
+    --border:             155 25% 21%;
+    --input:              155 25% 21%;
+    --ring:               143 55% 48%;
   }
+
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.6;
   }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: hsl(var(--muted)); }
+  ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
+}
+
+/* ── Animations ── */
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@keyframes fadeUp  { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+.fade-up  { animation: fadeUp 0.25s ease both; }
+.skeleton {
+  background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--border)) 50%, hsl(var(--muted)) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 6px;
+}
+
+/* ── Stock level utilities ── */
+.stock-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+.stock-ok   { background: var(--nl-green-light); color: var(--nl-green); }
+.stock-low  { background: var(--nl-amber-light);  color: var(--nl-amber-hover); }
+.stock-neg  { background: #FEE2E2; color: #B91C1C; }
+
+/* ── Chip / tag ── */
+.nl-chip {
+  display: inline-flex; align-items: center;
+  background: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  font-size: 11.5px; font-weight: 600;
+  padding: 2px 9px; border-radius: 999px;
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .font-display { font-family: var(--font-display); }
+  .font-nl-mono { font-family: var(--font-mono); }
 }

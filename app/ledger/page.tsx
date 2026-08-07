@@ -17,12 +17,12 @@ interface Entry {
   note?: string;
 }
 
-const REASON_COLORS: Record<string, string> = {
-  sale: "bg-red-100 text-red-700",
-  purchase: "bg-green-100 text-green-700",
-  reversal: "bg-orange-100 text-orange-700",
-  seed: "bg-blue-100 text-blue-700",
-  adjustment: "bg-gray-100 text-gray-600",
+const REASON_STYLES: Record<string, { bg: string; color: string }> = {
+  sale:       { bg: "#FEE2E2",              color: "#B91C1C" },
+  purchase:   { bg: "var(--nl-green-light)", color: "var(--nl-green)" },
+  reversal:   { bg: "#FFF7ED",              color: "#C2410C" },
+  seed:       { bg: "#EFF6FF",              color: "#1D4ED8" },
+  adjustment: { bg: "hsl(var(--muted))",    color: "var(--nl-text-3)" },
 };
 
 function LedgerTable() {
@@ -47,18 +47,23 @@ function LedgerTable() {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "20px", gap: "12px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           {variantId && (
             <Link href="/">
-              <Button variant="outline" size="sm" className="text-xs">← Products</Button>
+              <Button variant="outline" size="sm" style={{ fontSize: "12px", color: "var(--nl-text-2)" }}>← Products</Button>
             </Link>
           )}
-          <h1 className="text-xl font-bold">
-            {variantId && productName ? `History: ${productName}` : "Stock Ledger"}
-          </h1>
+          <div>
+            <h1 style={{ fontFamily: "var(--font-display)", fontSize: "22px", fontWeight: 700, color: "var(--nl-text)", margin: 0, letterSpacing: "-0.01em" }}>
+              {variantId && productName ? `History: ${productName}` : "Stock Ledger"}
+            </h1>
+            <p style={{ fontSize: "13px", color: "var(--nl-text-3)", marginTop: "3px" }}>
+              {filtered.length} entr{filtered.length !== 1 ? "ies" : "y"}
+            </p>
+          </div>
         </div>
-        <Input placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} className="w-48" />
+        <Input placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} className="w-44" />
       </div>
       {loading ? (
         <p className="text-gray-400 text-sm">Loading…</p>
@@ -88,14 +93,19 @@ function LedgerTable() {
                 </TableCell>
                 {!variantId && <TableCell className="text-sm">{e.variant?.nameCanonical ?? "—"}</TableCell>}
                 <TableCell>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${REASON_COLORS[e.reason] || ""}`}>
-                    {e.reason}
-                  </span>
+                  {(() => {
+                    const s = REASON_STYLES[e.reason] || REASON_STYLES.adjustment;
+                    return (
+                      <span style={{ display: "inline-flex", alignItems: "center", padding: "2px 8px", borderRadius: "999px", fontSize: "11.5px", fontWeight: 600, background: s.bg, color: s.color }}>
+                        {e.reason}
+                      </span>
+                    );
+                  })()}
                 </TableCell>
-                <TableCell className={`text-right font-mono font-bold ${e.delta < 0 ? "text-red-600" : "text-green-600"}`}>
+                <TableCell className="text-right" style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: e.delta < 0 ? "#B91C1C" : "var(--nl-green)", fontSize: "13.5px" }}>
                   {e.delta > 0 ? "+" : ""}{e.delta}
                 </TableCell>
-                <TableCell className="text-right font-mono text-sm">{e.balanceAfter}</TableCell>
+                <TableCell className="text-right" style={{ fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--nl-text-2)" }}>{e.balanceAfter}</TableCell>
                 <TableCell className="text-xs text-gray-500">
                   {e.batch ? `${e.batch.fileName}` : e.note || "—"}
                 </TableCell>

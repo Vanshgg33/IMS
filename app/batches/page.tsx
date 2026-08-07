@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface Batch {
@@ -17,12 +16,12 @@ interface Batch {
   appliedAt?: string;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  parsed: "bg-gray-100 text-gray-600",
-  previewed: "bg-yellow-100 text-yellow-700",
-  applied: "bg-green-100 text-green-700",
-  reversed: "bg-orange-100 text-orange-700",
-  discarded: "bg-red-100 text-red-600",
+const STATUS_STYLES: Record<string, { bg: string; color: string; dot: string }> = {
+  parsed:    { bg: "hsl(var(--muted))",              color: "var(--nl-text-3)",    dot: "var(--nl-text-3)" },
+  previewed: { bg: "var(--nl-amber-light)",           color: "var(--nl-amber-hover)", dot: "var(--nl-amber)" },
+  applied:   { bg: "var(--nl-green-light)",           color: "var(--nl-green)",     dot: "var(--nl-green)" },
+  reversed:  { bg: "#FFF7ED", color: "#C2410C",       dot: "#F97316" },
+  discarded: { bg: "#FEE2E2", color: "#B91C1C",       dot: "#EF4444" },
 };
 
 export default function BatchesPage() {
@@ -65,9 +64,14 @@ export default function BatchesPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">Batches</h1>
-        <Link href="/upload"><Button size="sm">+ New Upload</Button></Link>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+        <div>
+          <h1 style={{ fontFamily: "var(--font-display)", fontSize: "22px", fontWeight: 700, color: "var(--nl-text)", margin: 0, letterSpacing: "-0.01em" }}>Batches</h1>
+          <p style={{ fontSize: "13px", color: "var(--nl-text-3)", marginTop: "3px" }}>Upload history &amp; applied stock changes</p>
+        </div>
+        <Link href="/upload">
+          <Button size="sm" style={{ background: "var(--nl-amber)", color: "#fff", fontWeight: 700 }}>+ New Upload</Button>
+        </Link>
       </div>
 
       {loadError && (
@@ -78,7 +82,9 @@ export default function BatchesPage() {
       )}
 
       {loading ? (
-        <p className="text-gray-400 text-sm">Loading…</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: "44px", borderRadius: "8px" }} />)}
+        </div>
       ) : (
         <Table>
           <TableHeader>
@@ -99,20 +105,34 @@ export default function BatchesPage() {
             {batches.map((b) => (
               <TableRow key={b._id}>
                 <TableCell>
-                  <Link href={`/batches/${b._id}`} className="text-blue-600 hover:underline text-sm">
+                  <Link href={`/batches/${b._id}`} style={{ fontSize: "13.5px", fontWeight: 600, color: "var(--nl-amber)", textDecoration: "none", fontFamily: "var(--font-mono)" }}
+                    onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
+                    onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}>
                     {b.fileName}
                   </Link>
                 </TableCell>
                 <TableCell className="text-sm text-gray-500">{b.source}</TableCell>
                 <TableCell>
-                  <Badge variant={b.type === "sale" ? "destructive" : "default"} className="text-xs">
-                    {b.type}
-                  </Badge>
+                  <span style={{
+                    display: "inline-flex", alignItems: "center",
+                    padding: "2px 8px", borderRadius: "999px", fontSize: "11.5px", fontWeight: 700,
+                    ...(b.type === "sale"
+                      ? { background: "#FEE2E2", color: "#B91C1C" }
+                      : { background: "var(--nl-green-light)", color: "var(--nl-green)" })
+                  }}>
+                    {b.type === "sale" ? "▾ sale" : "▴ purchase"}
+                  </span>
                 </TableCell>
                 <TableCell>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[b.status] || ""}`}>
-                    {b.status}
-                  </span>
+                  {(() => {
+                    const s = STATUS_STYLES[b.status] || STATUS_STYLES.parsed;
+                    return (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", background: s.bg, color: s.color, fontSize: "11.5px", fontWeight: 600, padding: "3px 9px", borderRadius: "999px" }}>
+                        <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: s.dot, flexShrink: 0 }} />
+                        {b.status}
+                      </span>
+                    );
+                  })()}
                 </TableCell>
                 <TableCell className="text-right text-sm">{b.totals?.rows ?? "-"}</TableCell>
                 <TableCell className="text-right text-sm">{b.totals?.matched ?? "-"}</TableCell>
