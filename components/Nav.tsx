@@ -1,13 +1,14 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutGrid, Upload, Archive, BookOpen, LogOut, Leaf } from "lucide-react";
+import { LayoutGrid, Upload, Archive, BookOpen, Settings, LogOut, Leaf } from "lucide-react";
 
 const links = [
-  { href: "/",        label: "Products", icon: LayoutGrid },
-  { href: "/upload",  label: "Upload",   icon: Upload },
-  { href: "/batches", label: "Batches",  icon: Archive },
-  { href: "/ledger",  label: "Ledger",   icon: BookOpen },
+  { href: "/",          label: "Products", icon: LayoutGrid },
+  { href: "/upload",    label: "Upload",   icon: Upload },
+  { href: "/batches",   label: "Batches",  icon: Archive },
+  { href: "/ledger",    label: "Ledger",   icon: BookOpen },
+  { href: "/settings",  label: "Settings", icon: Settings },
 ];
 
 export default function Nav() {

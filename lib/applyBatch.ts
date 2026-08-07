@@ -2,11 +2,16 @@ import mongoose from "mongoose";
 import Variant from "@/models/Variant";
 import StockLedger from "@/models/StockLedger";
 import UploadBatch from "@/models/UploadBatch";
+import { sendLowStockAlert, ReorderAlert } from "@/lib/email";
 
 export async function applyBatch(batchId: string) {
+  const reorderAlerts: ReorderAlert[] = [];
+
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
+      reorderAlerts.length = 0; // clear on transaction retry
+
       const batch = await UploadBatch.findById(batchId).session(session);
       if (!batch) throw new Error("Batch not found");
       if (batch.status !== "previewed") throw new Error("Batch not in previewed state");
@@ -32,11 +37,27 @@ export async function applyBatch(batchId: string) {
         if (!v) continue;
         const delta = isSale ? -qty : qty;
         if (!v.stock) v.stock = { raipur: 0, bhilai: 0, rajnandgaon: 0 };
-        v.stock[store] = (v.stock[store] || 0) + delta;
+
+        const prevQty = v.stock[store] || 0;
+        v.stock[store] = prevQty + delta;
+        const newQty = v.stock[store];
+
+        // detect reorder threshold crossing (stock drops from above to at/below reorder level)
+        if (v.reorderLevel > 0 && prevQty > v.reorderLevel && newQty <= v.reorderLevel) {
+          reorderAlerts.push({
+            productName: v.productName || v.nameCanonical || "Unknown Product",
+            variantLabel: v.variantLabel || v.sku || "",
+            sku: v.sku || "",
+            store,
+            qty: newQty,
+            reorderLevel: v.reorderLevel,
+          });
+        }
+
         v.markModified("stock");
         await v.save({ session });
         await StockLedger.create(
-          [{ variant: v._id, store, delta, reason: ledgerReason, batch: batch._id, balanceAfter: v.stock[store] }],
+          [{ variant: v._id, store, delta, reason: ledgerReason, batch: batch._id, balanceAfter: newQty }],
           { session }
         );
         unitsProcessed += qty;
@@ -51,12 +72,23 @@ export async function applyBatch(batchId: string) {
   } finally {
     session.endSession();
   }
+
+  // fire email after transaction commits — email failure must NOT roll back stock changes
+  if (reorderAlerts.length > 0) {
+    sendLowStockAlert(reorderAlerts).catch((e) =>
+      console.error("[applyBatch] Low stock email failed:", e)
+    );
+  }
 }
 
 export async function reverseBatch(batchId: string) {
+  const reorderAlerts: ReorderAlert[] = [];
+
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
+      reorderAlerts.length = 0; // clear on transaction retry
+
       const batch = await UploadBatch.findById(batchId).session(session);
       if (!batch) throw new Error("Batch not found");
       if (batch.status !== "applied") throw new Error("Batch not in applied state");
@@ -80,11 +112,27 @@ export async function reverseBatch(batchId: string) {
         if (!v) continue;
         const delta = isSale ? qty : -qty; // reverse of apply
         if (!v.stock) v.stock = { raipur: 0, bhilai: 0, rajnandgaon: 0 };
-        v.stock[store] = (v.stock[store] || 0) + delta;
+
+        const prevQty = v.stock[store] || 0;
+        v.stock[store] = prevQty + delta;
+        const newQty = v.stock[store];
+
+        // reversal of a purchase decreases stock — detect threshold crossing
+        if (v.reorderLevel > 0 && prevQty > v.reorderLevel && newQty <= v.reorderLevel) {
+          reorderAlerts.push({
+            productName: v.productName || v.nameCanonical || "Unknown Product",
+            variantLabel: v.variantLabel || v.sku || "",
+            sku: v.sku || "",
+            store,
+            qty: newQty,
+            reorderLevel: v.reorderLevel,
+          });
+        }
+
         v.markModified("stock");
         await v.save({ session });
         await StockLedger.create(
-          [{ variant: v._id, store, delta, reason: "reversal", batch: batch._id, balanceAfter: v.stock[store] }],
+          [{ variant: v._id, store, delta, reason: "reversal", batch: batch._id, balanceAfter: newQty }],
           { session }
         );
       }
@@ -95,5 +143,12 @@ export async function reverseBatch(batchId: string) {
     });
   } finally {
     session.endSession();
+  }
+
+  // fire email after transaction commits
+  if (reorderAlerts.length > 0) {
+    sendLowStockAlert(reorderAlerts).catch((e) =>
+      console.error("[reverseBatch] Low stock email failed:", e)
+    );
   }
 }
