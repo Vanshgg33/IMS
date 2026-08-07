@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     await connectDB();
-    const batches = await UploadBatch.find().sort({ createdAt: -1 }).limit(100).lean();
+    const batches = await UploadBatch.find({ status: { $ne: "discarded" } }).sort({ createdAt: -1 }).limit(100).lean();
     return NextResponse.json(batches);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";

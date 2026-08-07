@@ -38,6 +38,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     batch.totals.matched = batch.rows.filter((r: any) => r.status === "matched").length;
     batch.totals.unmatched = batch.rows.filter((r: any) => r.status === "unmatched").length;
+    batch.markModified("totals");
     await batch.save();
     return NextResponse.json({ ok: true });
   } catch (err: unknown) {
@@ -66,6 +67,7 @@ export async function POST(_: NextRequest, { params }: { params: { id: string } 
 
     batch.totals.matched = batch.rows.filter((r: any) => r.status === "matched").length;
     batch.totals.unmatched = batch.rows.filter((r: any) => r.status === "unmatched").length;
+    batch.markModified("totals");
     await batch.save();
     return NextResponse.json({ ok: true });
   } catch (err: unknown) {

@@ -30,6 +30,7 @@ interface Batch {
   type: "sale" | "purchase";
   status: string;
   source: string;
+  saleDate?: string;
   rows: Row[];
   totals: { rows: number; matched: number; unmatched: number };
 }
@@ -44,6 +45,7 @@ export default function BatchPreviewPage() {
   const [loadError, setLoadError] = useState("");
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState("");
+  const [rerunning, setRerunning] = useState(false);
 
   const load = useCallback(async () => {
     setLoadError("");
@@ -82,6 +84,16 @@ export default function BatchPreviewPage() {
       return;
     }
     load();
+  }
+
+  async function rerunMatching() {
+    setRerunning(true);
+    try {
+      await fetch(`/api/batches/${id}/rows`, { method: "POST" });
+      load();
+    } finally {
+      setRerunning(false);
+    }
   }
 
   async function applyBatch() {
@@ -141,17 +153,32 @@ export default function BatchPreviewPage() {
             </Badge>
             {" · "}
             <span className="capitalize">{batch.status}</span>
+            {batch.saleDate && (
+              <> · {isSale ? "Sale" : "Purchase"} date: <span className="font-medium text-gray-700">{new Date(batch.saleDate).toLocaleDateString()}</span></>
+            )}
           </p>
         </div>
         {!isApplied && (
           <div className="flex flex-col items-end gap-1">
-            <Button
-              onClick={applyBatch}
-              disabled={applying || batch.totals.matched === 0}
-              className={isSale ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"}
-            >
-              {applying ? "Applying…" : `Apply ${isSale ? "→ Subtract Stock" : "→ Add Stock"}`}
-            </Button>
+            <div className="flex gap-2">
+              {batch.totals.unmatched > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={rerunMatching}
+                  disabled={rerunning}
+                  className="text-sm"
+                >
+                  {rerunning ? "Re-matching…" : "Re-run Matching"}
+                </Button>
+              )}
+              <Button
+                onClick={applyBatch}
+                disabled={applying || batch.totals.matched === 0}
+                className={isSale ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"}
+              >
+                {applying ? "Applying…" : `Apply ${isSale ? "→ Subtract Stock" : "→ Add Stock"}`}
+              </Button>
+            </div>
             {applyError && <p className="text-xs text-red-500">{applyError}</p>}
           </div>
         )}

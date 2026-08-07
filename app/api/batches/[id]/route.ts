@@ -6,6 +6,23 @@ import Variant from "@/models/Variant";
 
 export const dynamic = "force-dynamic";
 
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    await connectDB();
+    const body = await req.json();
+    const batch = await UploadBatch.findById(params.id);
+    if (!batch) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (body.status === "discarded" && (batch.status === "parsed" || batch.status === "previewed")) {
+      batch.status = "discarded";
+      await batch.save();
+    }
+    return NextResponse.json({ ok: true });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   try {
     await connectDB();

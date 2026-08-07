@@ -12,9 +12,9 @@ export async function GET(req: NextRequest) {
     const query = variantId ? { variant: variantId } : {};
     const entries = await StockLedger.find(query)
       .sort({ createdAt: -1 })
-      .limit(200)
+      .limit(500)
       .populate("variant", "nameCanonical sku")
-      .populate("batch", "fileName source type")
+      .populate("batch", "fileName source type saleDate")
       .lean();
     return NextResponse.json(entries);
   } catch (err: unknown) {

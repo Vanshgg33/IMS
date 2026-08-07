@@ -38,6 +38,7 @@ export async function applyBatch(batchId: string) {
       batch.status = "applied";
       batch.appliedAt = new Date();
       batch.totals.unitsProcessed = unitsProcessed;
+      batch.markModified("totals");
       await batch.save({ session });
     });
   } finally {

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import * as XLSX from "xlsx";
 
 interface Template {
@@ -15,10 +16,52 @@ interface Template {
   columnMap: { name: string; qty: string };
 }
 
+// Keywords used to auto-detect which column is which.
+// Qty is checked first (more specific), then name from the remaining columns.
+const QTY_HINTS = [
+  "sales quantity", "sale quantity", "quantity sold", "qty sold",
+  "units sold", "sales qty", "sold qty", "qty", "quantity",
+  "sales", "sold", "units", "amount",
+];
+const NAME_HINTS = [
+  "product name", "productname", "item name", "itemname",
+  "product", "item", "name", "description",
+];
+
+function autoDetect(cols: string[]): { name: string; qty: string } {
+  const norm = (s: string) => s.toLowerCase().replace(/[\s_-]+/g, " ").trim();
+
+  function findCol(hints: string[], exclude: string[]): string {
+    for (const hint of hints) {
+      const found = cols.find(c => !exclude.includes(c) && norm(c).includes(hint));
+      if (found) return found;
+    }
+    return "";
+  }
+
+  const qty = findCol(QTY_HINTS, []);
+  const name = findCol(NAME_HINTS, qty ? [qty] : []);
+
+  // With exactly 2 columns fill whatever wasn't detected
+  if (cols.length <= 3) {
+    const result = { name, qty };
+    if (result.qty && !result.name) result.name = cols.find(c => c !== result.qty) || "";
+    if (result.name && !result.qty) result.qty = cols.find(c => c !== result.name) || "";
+    if (!result.name && !result.qty && cols.length >= 2) {
+      result.name = cols[0];
+      result.qty = cols[1];
+    }
+    return result;
+  }
+
+  return { name, qty };
+}
+
 export default function UploadPage() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [columns, setColumns] = useState<string[]>([]);
+  const [previewRows, setPreviewRows] = useState<Record<string, unknown>[]>([]);
   const [nameCol, setNameCol] = useState("");
   const [qtyCol, setQtyCol] = useState("");
   const [source, setSource] = useState("");
@@ -26,6 +69,7 @@ export default function UploadPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [saveTemplate, setSaveTemplate] = useState(false);
   const [templateName, setTemplateName] = useState("");
+  const [saleDate, setSaleDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [drag, setDrag] = useState(false);
@@ -35,20 +79,32 @@ export default function UploadPage() {
     fetch("/api/templates")
       .then((r) => r.json())
       .then((d) => Array.isArray(d) && setTemplates(d))
-      .catch(() => {/* templates are optional */});
+      .catch(() => {});
   }, []);
 
-  function parseColumns(f: File) {
+  function parseAndDetect(f: File) {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const wb = XLSX.read(e.target?.result, { type: "binary" });
         const sheet = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
-        if (rows.length > 0) setColumns(Object.keys(rows[0]));
-        else setColumns([]);
+
+        if (rows.length === 0) {
+          setUploadError("This file is empty — no rows found.");
+          return;
+        }
+
+        const cols = Object.keys(rows[0]);
+        setColumns(cols);
+        setPreviewRows(rows.slice(0, 5));
+
+        // Auto-detect and pre-fill the column selectors
+        const { name, qty } = autoDetect(cols);
+        if (name) setNameCol(name);
+        if (qty) setQtyCol(qty);
       } catch {
-        setUploadError("Could not parse this file. Please use .xlsx, .xls or .csv.");
+        setUploadError("Could not read this file. Please use .xlsx, .xls or .csv.");
       }
     };
     reader.onerror = () => setUploadError("Failed to read file.");
@@ -58,10 +114,11 @@ export default function UploadPage() {
   function handleFile(f: File) {
     setFile(f);
     setColumns([]);
+    setPreviewRows([]);
     setNameCol("");
     setQtyCol("");
     setUploadError("");
-    parseColumns(f);
+    parseAndDetect(f);
   }
 
   function applyTemplate(t: Template) {
@@ -99,6 +156,7 @@ export default function UploadPage() {
       fd.append("qtyCol", qtyCol);
       fd.append("source", source || file.name);
       fd.append("type", batchType);
+      fd.append("saleDate", saleDate);
 
       const res = await fetch("/api/upload", { method: "POST", body: fd });
       if (!res.ok) {
@@ -110,10 +168,20 @@ export default function UploadPage() {
       const data = await res.json();
 
       if (data.duplicateWarning) {
+        const appliedOn = data.duplicateDate
+          ? new Date(data.duplicateDate).toLocaleDateString()
+          : "a previous session";
         const ok = confirm(
-          `This exact file was already applied on ${new Date(data.duplicateDate).toLocaleDateString()}.\nApplying again will double-${batchType === "sale" ? "subtract" : "add"}. Continue?`
+          `This exact file was already applied on ${appliedOn}.\nApplying again will double-${batchType === "sale" ? "subtract" : "add"} stock. Continue?`
         );
-        if (!ok) return;
+        if (!ok) {
+          await fetch(`/api/batches/${data.batch._id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "discarded" }),
+          }).catch(() => {});
+          return;
+        }
       }
 
       router.push(`/batches/${data.batch._id}`);
@@ -123,6 +191,13 @@ export default function UploadPage() {
       setUploading(false);
     }
   }
+
+  // Rows that will actually be processed (have a name and qty > 0)
+  const validPreviewCount = previewRows.filter(r => {
+    const n = String(r[nameCol] || "").trim();
+    const q = parseFloat(String(r[qtyCol] || "0")) || 0;
+    return n && q > 0;
+  }).length;
 
   return (
     <div className="max-w-xl">
@@ -143,6 +218,8 @@ export default function UploadPage() {
 
       <Card>
         <CardContent className="space-y-4 pt-4">
+
+          {/* Drop zone */}
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
               drag ? "border-green-500 bg-green-50" : "border-gray-200 hover:border-gray-300"
@@ -162,12 +239,17 @@ export default function UploadPage() {
             {file ? (
               <p className="text-sm font-medium text-green-700">{file.name}</p>
             ) : (
-              <p className="text-sm text-gray-400">Drop xlsx / csv here or click to browse</p>
+              <div>
+                <p className="text-sm text-gray-500 font-medium">Drop your Excel / CSV file here</p>
+                <p className="text-xs text-gray-400 mt-1">or click to browse — .xlsx, .xls, .csv</p>
+              </div>
             )}
           </div>
 
+          {/* Column configuration — shown after file is loaded */}
           {columns.length > 0 && (
             <>
+              {/* Report type + date */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs mb-1">Report type</Label>
@@ -180,32 +262,111 @@ export default function UploadPage() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs mb-1">Source / label</Label>
-                  <Input placeholder="e.g. Shopify export" value={source} onChange={(e) => setSource(e.target.value)} />
+                  <Label className="text-xs mb-1">
+                    {batchType === "sale" ? "Sale Date" : "Purchase Date"}
+                  </Label>
+                  <Input
+                    type="date"
+                    value={saleDate}
+                    onChange={(e) => setSaleDate(e.target.value)}
+                  />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs mb-1">Product name column</Label>
-                  <Select value={nameCol} onValueChange={(v) => setNameCol(v)}>
-                    <SelectTrigger><SelectValue placeholder="Pick column" /></SelectTrigger>
-                    <SelectContent>
-                      {columns.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs mb-1">Quantity column</Label>
-                  <Select value={qtyCol} onValueChange={(v) => setQtyCol(v)}>
-                    <SelectTrigger><SelectValue placeholder="Pick column" /></SelectTrigger>
-                    <SelectContent>
-                      {columns.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+              {/* Source label */}
+              <div>
+                <Label className="text-xs mb-1">Source / label <span className="text-gray-400">(optional)</span></Label>
+                <Input
+                  placeholder="e.g. Today's sales"
+                  value={source}
+                  onChange={(e) => setSource(e.target.value)}
+                />
+              </div>
+
+              {/* Column mapping */}
+              <div>
+                <p className="text-xs font-medium text-gray-600 mb-2">
+                  Column mapping
+                  {nameCol && qtyCol && (
+                    <span className="ml-2 text-green-600 font-normal">— auto-detected, change if wrong</span>
+                  )}
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs mb-1">Product name column</Label>
+                    <Select value={nameCol} onValueChange={(v) => setNameCol(v)}>
+                      <SelectTrigger className={nameCol ? "" : "border-orange-300"}>
+                        <SelectValue placeholder="Pick column…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {columns.map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs mb-1">Quantity column</Label>
+                    <Select value={qtyCol} onValueChange={(v) => setQtyCol(v)}>
+                      <SelectTrigger className={qtyCol ? "" : "border-orange-300"}>
+                        <SelectValue placeholder="Pick column…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {columns.map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
 
+              {/* Data preview — shows first 5 rows of the selected columns */}
+              {nameCol && qtyCol && previewRows.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-gray-600 mb-1">
+                    Preview <span className="text-gray-400 font-normal">(first {previewRows.length} rows)</span>
+                    {previewRows.length === 5 && (
+                      <span className="text-gray-400 font-normal"> · {validPreviewCount} of {previewRows.length} shown will be processed</span>
+                    )}
+                  </p>
+                  <div className="rounded border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-gray-50">
+                          <TableHead className="text-xs py-1.5 h-auto">{nameCol}</TableHead>
+                          <TableHead className="text-xs py-1.5 h-auto text-right">{qtyCol}</TableHead>
+                          <TableHead className="text-xs py-1.5 h-auto text-center w-16">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {previewRows.map((row, i) => {
+                          const n = String(row[nameCol] || "").trim();
+                          const q = parseFloat(String(row[qtyCol] || "0")) || 0;
+                          const willProcess = n && q > 0;
+                          return (
+                            <TableRow key={i} className={willProcess ? "" : "opacity-40"}>
+                              <TableCell className="text-xs py-1.5 font-mono">
+                                {n || <span className="text-gray-400 italic">empty</span>}
+                              </TableCell>
+                              <TableCell className="text-xs py-1.5 text-right font-mono">
+                                {q > 0 ? q : <span className="text-gray-400">—</span>}
+                              </TableCell>
+                              <TableCell className="text-xs py-1.5 text-center">
+                                {willProcess
+                                  ? <span className="text-green-600">✓</span>
+                                  : <span className="text-gray-400">skip</span>}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
+              {/* Template save */}
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -213,7 +374,7 @@ export default function UploadPage() {
                   checked={saveTemplate}
                   onChange={(e) => setSaveTemplate(e.target.checked)}
                 />
-                <Label htmlFor="saveT" className="text-xs cursor-pointer">Save as template</Label>
+                <Label htmlFor="saveT" className="text-xs cursor-pointer">Save column mapping as template</Label>
                 {saveTemplate && (
                   <Input
                     placeholder="Template name"
@@ -227,7 +388,9 @@ export default function UploadPage() {
           )}
 
           {uploadError && (
-            <p className="text-sm text-red-500">{uploadError}</p>
+            <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+              {uploadError}
+            </div>
           )}
 
           <Button
@@ -237,6 +400,7 @@ export default function UploadPage() {
           >
             {uploading ? "Parsing…" : "Parse & Preview →"}
           </Button>
+
         </CardContent>
       </Card>
     </div>

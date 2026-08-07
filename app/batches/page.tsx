@@ -13,6 +13,7 @@ interface Batch {
   status: string;
   totals: { rows: number; matched: number; unmatched: number; unitsProcessed: number };
   createdAt: string;
+  saleDate?: string;
   appliedAt?: string;
 }
 
@@ -89,7 +90,8 @@ export default function BatchesPage() {
               <TableHead className="text-right">Rows</TableHead>
               <TableHead className="text-right">Matched</TableHead>
               <TableHead className="text-right">Units</TableHead>
-              <TableHead>Date</TableHead>
+              <TableHead>Sale Date</TableHead>
+              <TableHead>Applied</TableHead>
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
@@ -116,7 +118,10 @@ export default function BatchesPage() {
                 <TableCell className="text-right text-sm">{b.totals?.matched ?? "-"}</TableCell>
                 <TableCell className="text-right text-sm font-mono">{b.totals?.unitsProcessed ?? "-"}</TableCell>
                 <TableCell className="text-xs text-gray-400">
-                  {new Date(b.createdAt).toLocaleDateString()}
+                  {b.saleDate ? new Date(b.saleDate).toLocaleDateString() : new Date(b.createdAt).toLocaleDateString()}
+                </TableCell>
+                <TableCell className="text-xs text-gray-400">
+                  {b.appliedAt ? new Date(b.appliedAt).toLocaleString() : "—"}
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">

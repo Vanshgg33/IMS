@@ -32,6 +32,7 @@ const UploadBatchSchema = new mongoose.Schema(
       default: "parsed",
     },
     totals:    { rows: Number, matched: Number, unmatched: Number, unitsProcessed: Number },
+    saleDate:  Date,
     appliedAt: Date,
     reversedAt: Date,
   },

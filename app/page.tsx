@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -183,6 +184,11 @@ export default function ProductsPage() {
                       }}>
                       Edit
                     </Button>
+                    <Link href={`/ledger?variantId=${v._id}`}>
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-blue-600">
+                        History
+                      </Button>
+                    </Link>
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-red-500"
                       onClick={() => archive(v._id)}>
                       Archive
