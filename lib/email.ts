@@ -21,15 +21,18 @@ export interface ReorderAlert {
 }
 
 function createTransporter() {
-  const host = process.env.EMAIL_HOST;
-  const user = process.env.EMAIL_USER;
-  const pass = process.env.EMAIL_PASS;
+  const host = process.env.SMTP_HOST || process.env.EMAIL_HOST;
+  const user = process.env.SMTP_USER || process.env.EMAIL_USER;
+  const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
   if (!host || !user || !pass) return null;
+
+  const port = Number(process.env.SMTP_PORT || process.env.EMAIL_PORT) || 587;
+  const secure = process.env.SMTP_SECURE === "true" || port === 465;
 
   return nodemailer.createTransport({
     host,
-    port: Number(process.env.EMAIL_PORT) || 587,
-    secure: Number(process.env.EMAIL_PORT) === 465,
+    port,
+    secure,
     auth: { user, pass },
   });
 }
@@ -153,7 +156,7 @@ export async function sendLowStockAlert(alerts: ReorderAlert[]): Promise<void> {
     </html>`;
 
   await transporter.sendMail({
-    from: `"NatureLite IMS" <${process.env.EMAIL_USER}>`,
+    from: `"NatureLite IMS" <${process.env.SMTP_USER || process.env.EMAIL_USER}>`,
     to: recipients,
     subject,
     html,
