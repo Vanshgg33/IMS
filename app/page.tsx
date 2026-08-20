@@ -64,7 +64,7 @@ function StockPill({ qty, reorderLevel }: { qty: number; reorderLevel: number })
 }
 
 function StatCard({
-  icon, label, value, iconBg, iconColor, delay, accent,
+  icon, label, value, iconBg, iconColor, delay, accent, onClick, active,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -73,16 +73,21 @@ function StatCard({
   iconColor: string;
   delay: string;
   accent?: boolean;
+  onClick?: () => void;
+  active?: boolean;
 }) {
   return (
     <div
       className="fade-up"
+      onClick={onClick}
       style={{
         animationDelay: delay,
-        background: "#fff",
-        border: `1px solid ${accent ? iconColor + "33" : "var(--nl-border)"}`,
+        background: active ? iconColor + "0f" : "#fff",
+        border: active
+          ? `2px solid ${iconColor}`
+          : `1px solid ${accent ? iconColor + "33" : "var(--nl-border)"}`,
         borderRadius: "14px",
-        padding: "18px 20px",
+        padding: active ? "17px 19px" : "18px 20px",
         boxShadow: accent
           ? `0 2px 12px ${iconColor}18, var(--shadow)`
           : "var(--shadow)",
@@ -91,9 +96,11 @@ function StatCard({
         gap: "14px",
         position: "relative",
         overflow: "hidden",
+        cursor: onClick ? "pointer" : "default",
+        transition: "border 0.15s, background 0.15s, box-shadow 0.15s",
       }}
     >
-      {accent && (
+      {accent && !active && (
         <div style={{
           position: "absolute", top: 0, right: 0, width: "80px", height: "80px",
           background: `radial-gradient(circle at top right, ${iconColor}12 0%, transparent 70%)`,
@@ -102,13 +109,13 @@ function StatCard({
       )}
       <div style={{
         width: "40px", height: "40px", borderRadius: "10px",
-        background: iconBg,
+        background: active ? iconColor + "22" : iconBg,
         display: "flex", alignItems: "center", justifyContent: "center",
         flexShrink: 0,
       }}>
         {icon}
       </div>
-      <div style={{ minWidth: 0 }}>
+      <div style={{ minWidth: 0, flex: 1 }}>
         <p style={{
           fontFamily: "var(--font-display)",
           fontSize: "26px", fontWeight: 700, lineHeight: 1.1,
@@ -124,6 +131,15 @@ function StatCard({
           {label}
         </p>
       </div>
+      {active && (
+        <span style={{
+          position: "absolute", top: "8px", right: "10px",
+          fontSize: "10px", fontWeight: 700, color: iconColor,
+          letterSpacing: "0.06em", textTransform: "uppercase",
+        }}>
+          Filtered ✕
+        </span>
+      )}
     </div>
   );
 }
@@ -139,6 +155,7 @@ export default function ProductsPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [newAlias, setNewAlias] = useState("");
   const [search, setSearch] = useState("");
+  const [stockFilter, setStockFilter] = useState<"all" | "low" | "out">("all");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
@@ -222,12 +239,13 @@ export default function ProductsPage() {
     setAliasTarget(fresh?.find((v) => v._id === variantId) ?? null);
   }
 
-  const filtered = variants.filter(
-    (v) =>
-      v.productName.toLowerCase().includes(search.toLowerCase()) ||
-      v.variantLabel.toLowerCase().includes(search.toLowerCase()) ||
-      v.sku.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = variants.filter((v) => {
+    const q = v.stock?.[selectedStore] ?? 0;
+    if (stockFilter === "out" && q > 0) return false;
+    if (stockFilter === "low" && !(v.reorderLevel > 0 && q <= v.reorderLevel && q > 0)) return false;
+    const s = search.toLowerCase();
+    return !s || v.productName.toLowerCase().includes(s) || v.variantLabel.toLowerCase().includes(s) || v.sku.toLowerCase().includes(s);
+  });
 
   const storeTotal = variants.reduce((sum, v) => sum + Math.max(0, v.stock?.[selectedStore] ?? 0), 0);
   const lowStockCount = variants.filter(v => v.reorderLevel > 0 && (v.stock?.[selectedStore] ?? 0) <= v.reorderLevel && (v.stock?.[selectedStore] ?? 0) > 0).length;
@@ -261,7 +279,7 @@ export default function ProductsPage() {
         </div>
 
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <Select value={selectedStore} onValueChange={(v) => setSelectedStore(v as Store)}>
+          <Select value={selectedStore} onValueChange={(v) => { setSelectedStore(v as Store); setStockFilter("all"); }}>
             <SelectTrigger className="w-36" style={{ fontFamily: "var(--font-body)", fontSize: "13px" }}>
               <SelectValue />
             </SelectTrigger>
@@ -311,6 +329,8 @@ export default function ProductsPage() {
               iconBg="var(--nl-amber-light)"
               iconColor="var(--nl-amber)"
               accent={lowStockCount > 0}
+              active={stockFilter === "low"}
+              onClick={lowStockCount > 0 ? () => setStockFilter(f => f === "low" ? "all" : "low") : undefined}
             />
             <StatCard
               delay="150ms"
@@ -320,6 +340,8 @@ export default function ProductsPage() {
               iconBg="#FEE2E2"
               iconColor="#EF4444"
               accent={outOfStockCount > 0}
+              active={stockFilter === "out"}
+              onClick={outOfStockCount > 0 ? () => setStockFilter(f => f === "out" ? "all" : "out") : undefined}
             />
           </>
         )}
@@ -366,6 +388,22 @@ export default function ProductsPage() {
               style={{ fontSize: "12px", color: "var(--nl-text-3)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
             >
               Clear
+            </button>
+          )}
+          {stockFilter !== "all" && (
+            <button
+              onClick={() => setStockFilter("all")}
+              style={{
+                display: "flex", alignItems: "center", gap: "5px",
+                fontSize: "12px", fontWeight: 700, border: "none", cursor: "pointer",
+                borderRadius: "6px", padding: "3px 10px",
+                background: stockFilter === "out" ? "#FEE2E2" : "var(--nl-amber-light)",
+                color: stockFilter === "out" ? "#B91C1C" : "var(--nl-amber-hover)",
+              }}
+            >
+              {stockFilter === "out" ? <PackageX size={11} /> : <AlertTriangle size={11} />}
+              {stockFilter === "out" ? "Out of Stock" : "Low Stock"}
+              <span style={{ opacity: 0.6 }}>✕</span>
             </button>
           )}
           <span style={{ fontSize: "12px", color: "var(--nl-text-3)", marginLeft: "auto", fontFamily: "var(--font-mono)" }}>
@@ -494,10 +532,14 @@ export default function ProductsPage() {
                         <Package size={26} style={{ opacity: 0.35 }} />
                       </div>
                       <p style={{ fontFamily: "var(--font-display)", fontSize: "16px", fontWeight: 600, color: "var(--nl-text-2)", marginBottom: "6px" }}>
-                        {search ? "No matches found" : "No products yet"}
+                        {stockFilter !== "all" ? `No ${stockFilter === "out" ? "out-of-stock" : "low stock"} items` : search ? "No matches found" : "No products yet"}
                       </p>
                       <p style={{ fontSize: "13px", maxWidth: "260px", margin: "0 auto" }}>
-                        {search ? `No variants match "${search}"` : "Add your first product variant to start tracking inventory."}
+                        {stockFilter !== "all"
+                          ? `All ${STORE_LABEL[selectedStore]} products look healthy.`
+                          : search
+                          ? `No variants match "${search}"`
+                          : "Add your first product variant to start tracking inventory."}
                       </p>
                       {!search && (
                         <Button
