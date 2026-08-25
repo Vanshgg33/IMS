@@ -279,7 +279,7 @@ export default function ProductsPage() {
         </div>
 
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <Select value={selectedStore} onValueChange={(v) => { setSelectedStore(v as Store); setStockFilter("all"); }}>
+          <Select value={selectedStore} onValueChange={(v) => setSelectedStore(v as Store)}>
             <SelectTrigger className="w-36" style={{ fontFamily: "var(--font-body)", fontSize: "13px" }}>
               <SelectValue />
             </SelectTrigger>
@@ -323,14 +323,14 @@ export default function ProductsPage() {
             />
             <StatCard
               delay="100ms"
-              icon={<AlertTriangle size={19} color="var(--nl-amber-hover)" />}
+              icon={<AlertTriangle size={19} color="#92400E" />}
               label="Low Stock"
               value={lowStockCount}
-              iconBg="var(--nl-amber-light)"
-              iconColor="var(--nl-amber)"
+              iconBg="#FEF3C7"
+              iconColor="#B45309"
               accent={lowStockCount > 0}
               active={stockFilter === "low"}
-              onClick={lowStockCount > 0 ? () => setStockFilter(f => f === "low" ? "all" : "low") : undefined}
+              onClick={stockFilter === "low" || lowStockCount > 0 ? () => setStockFilter(f => f === "low" ? "all" : "low") : undefined}
             />
             <StatCard
               delay="150ms"
@@ -341,7 +341,7 @@ export default function ProductsPage() {
               iconColor="#EF4444"
               accent={outOfStockCount > 0}
               active={stockFilter === "out"}
-              onClick={outOfStockCount > 0 ? () => setStockFilter(f => f === "out" ? "all" : "out") : undefined}
+              onClick={stockFilter === "out" || outOfStockCount > 0 ? () => setStockFilter(f => f === "out" ? "all" : "out") : undefined}
             />
           </>
         )}

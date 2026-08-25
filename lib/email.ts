@@ -23,7 +23,7 @@ export interface ReorderAlert {
 function createTransporter() {
   const host = process.env.SMTP_HOST || process.env.EMAIL_HOST;
   const user = process.env.SMTP_USER || process.env.EMAIL_USER;
-  const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+  const pass = (process.env.SMTP_PASS || process.env.EMAIL_PASS)?.replace(/\s/g, "");
   if (!host || !user || !pass) return null;
 
   const port = Number(process.env.SMTP_PORT || process.env.EMAIL_PORT) || 587;

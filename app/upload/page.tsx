@@ -139,6 +139,10 @@ export default function UploadPage() {
 
   async function upload() {
     if (!file || !nameCol || !qtyCol) return;
+    if (nameCol === qtyCol) {
+      setUploadError("Product name column and quantity column cannot be the same.");
+      return;
+    }
     setUploading(true);
     setUploadError("");
 
@@ -350,7 +354,7 @@ export default function UploadPage() {
                 <div>
                   <p className="text-xs font-medium text-gray-600 mb-1">
                     Preview <span className="text-gray-400 font-normal">(first {previewRows.length} rows)</span>
-                    {previewRows.length === 5 && (
+                    {validPreviewCount < previewRows.length && (
                       <span className="text-gray-400 font-normal"> · {validPreviewCount} of {previewRows.length} shown will be processed</span>
                     )}
                   </p>

@@ -90,7 +90,12 @@ export default function BatchPreviewPage() {
   async function rerunMatching() {
     setRerunning(true);
     try {
-      await fetch(`/api/batches/${id}/rows`, { method: "POST" });
+      const res = await fetch(`/api/batches/${id}/rows`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Re-matching failed");
+        return;
+      }
       load();
     } finally {
       setRerunning(false);

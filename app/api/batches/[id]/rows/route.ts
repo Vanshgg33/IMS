@@ -62,6 +62,9 @@ export async function POST(_: NextRequest, { params }: { params: { id: string } 
         row.status = "matched";
         row.matchedVariant = result.variantId as any;
         row.matchType = result.matchType as any;
+        row.suggestions = undefined;
+      } else {
+        row.suggestions = (result as any).suggestions;
       }
     }
 
