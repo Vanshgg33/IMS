@@ -283,7 +283,7 @@ export default function ProductsPage() {
             <SelectTrigger className="w-36" style={{ fontFamily: "var(--font-body)", fontSize: "13px" }}>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent position="item-aligned">
               {STORES.map(s => <SelectItem key={s} value={s}>{STORE_LABEL[s]}</SelectItem>)}
             </SelectContent>
           </Select>
