@@ -282,7 +282,7 @@ export default function UploadPage() {
                   <Label className="text-xs mb-1">Store</Label>
                   <Select value={store} onValueChange={(v) => setStore(v as "raipur" | "bhilai" | "rajnandgaon")}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="item-aligned">
                       <SelectItem value="raipur">Raipur</SelectItem>
                       <SelectItem value="bhilai">Bhilai</SelectItem>
                       <SelectItem value="rajnandgaon">Rajnandgaon</SelectItem>
