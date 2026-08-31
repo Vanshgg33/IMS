@@ -46,13 +46,22 @@ export default function SettingsPage() {
   }
 
   async function save() {
+    // auto-add whatever is typed in the input so users don't have to click Add first
+    let finalEmails = emails;
+    const pending = input.trim().toLowerCase();
+    if (pending && isValidEmail(pending) && !emails.includes(pending)) {
+      finalEmails = [...emails, pending];
+      setEmails(finalEmails);
+      setInput("");
+    }
+
     setSaving(true);
     setStatus(null);
     try {
       const res = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ alertEmails: emails }),
+        body: JSON.stringify({ alertEmails: finalEmails }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
