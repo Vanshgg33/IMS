@@ -228,6 +228,41 @@ export default function UploadPage() {
       <Card>
         <CardContent className="space-y-4 pt-4">
 
+          {/* Report type + store + date — always visible so users set store before uploading */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <Label className="text-xs mb-1">Report type</Label>
+              <Select value={batchType} onValueChange={(v) => setBatchType(v as "sale" | "purchase")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sale">Sale (subtract)</SelectItem>
+                  <SelectItem value="purchase">Purchase (add)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs mb-1">Store</Label>
+              <Select value={store} onValueChange={(v) => setStore(v as "raipur" | "bhilai" | "rajnandgaon")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent position="item-aligned">
+                  <SelectItem value="raipur">Raipur</SelectItem>
+                  <SelectItem value="bhilai">Bhilai</SelectItem>
+                  <SelectItem value="rajnandgaon">Rajnandgaon</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs mb-1">
+                {batchType === "sale" ? "Sale Date" : "Purchase Date"}
+              </Label>
+              <Input
+                type="date"
+                value={saleDate}
+                onChange={(e) => setSaleDate(e.target.value)}
+              />
+            </div>
+          </div>
+
           {/* Drop zone */}
           <div
             style={{
@@ -266,40 +301,6 @@ export default function UploadPage() {
           {/* Column configuration — shown after file is loaded */}
           {columns.length > 0 && (
             <>
-              {/* Report type + store + date */}
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <Label className="text-xs mb-1">Report type</Label>
-                  <Select value={batchType} onValueChange={(v) => setBatchType(v as "sale" | "purchase")}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sale">Sale (subtract)</SelectItem>
-                      <SelectItem value="purchase">Purchase (add)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs mb-1">Store</Label>
-                  <Select value={store} onValueChange={(v) => setStore(v as "raipur" | "bhilai" | "rajnandgaon")}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent position="item-aligned">
-                      <SelectItem value="raipur">Raipur</SelectItem>
-                      <SelectItem value="bhilai">Bhilai</SelectItem>
-                      <SelectItem value="rajnandgaon">Rajnandgaon</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs mb-1">
-                    {batchType === "sale" ? "Sale Date" : "Purchase Date"}
-                  </Label>
-                  <Input
-                    type="date"
-                    value={saleDate}
-                    onChange={(e) => setSaleDate(e.target.value)}
-                  />
-                </div>
-              </div>
 
               {/* Source label */}
               <div>
