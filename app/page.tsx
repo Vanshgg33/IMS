@@ -159,10 +159,23 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
+  async function extractError(res: Response): Promise<string> {
+    try {
+      const data = await res.json();
+      return data.error || `Save failed (${res.status})`;
+    } catch {
+      return `Save failed (${res.status})`;
+    }
+  }
+
   async function load() {
     setLoadError("");
     try {
       const res = await fetch("/api/variants");
+      if (res.status === 401) {
+        window.location.href = "/login";
+        return [] as Variant[];
+      }
       if (!res.ok) throw new Error(`Server error ${res.status}`);
       const fresh: Variant[] = await res.json();
       setVariants(fresh);
@@ -195,8 +208,11 @@ export default function ProductsPage() {
         });
       }
       if (!res.ok) {
-        const data = await res.json();
-        setSaveError(data.error || "Save failed");
+        if (res.status === 401) {
+          window.location.href = "/login";
+          return;
+        }
+        setSaveError(await extractError(res));
         return;
       }
       setShowAdd(false);

@@ -10,6 +10,13 @@ export function middleware(req: NextRequest) {
 
   const session = req.cookies.get(SESSION_COOKIE)?.value;
   if (session !== "authenticated") {
+    // API requests must get a JSON response, not an HTML redirect — a 307
+    // redirect preserves the original method (e.g. PATCH), which the /login
+    // page can't handle and Next.js answers with an HTML error page, causing
+    // "Unexpected token '<' ... is not valid JSON" on the client.
+    if (pathname.startsWith("/api")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.redirect(new URL("/login", req.url));
   }
   return NextResponse.next();
